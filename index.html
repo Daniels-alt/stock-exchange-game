@@ -1039,8 +1039,9 @@ body {
   .seat-top-right { order: 4; }
   .seat-right     { order: 5; }
 
-  /* Hide suit name text inside pile cards */
-  .pile-card .card-suit-name { display: none; }
+  /* Hide suit name text inside all cards */
+  .pile-card .card-suit-name,
+  .hand-card .card-suit-name { display: none; }
 
   /* Smaller cards */
   :root { --card-width: 62px; --card-height: 90px; }
