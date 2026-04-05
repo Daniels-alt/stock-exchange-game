@@ -967,20 +967,35 @@ body {
 #piles-row { display: contents; }
 
 /* === CLASSIC VARIANT CARDS === */
-.pile-card.classic-card {
-  background: linear-gradient(135deg, #1a0a2e, #2d1047);
-  border: 2px solid var(--accent);
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
-}
-.pile-card.classic-card .card-value { color: var(--accent); }
+.pile-card.classic-card,
 .hand-card.classic-card {
-  background: linear-gradient(135deg, #1a0a2e, #2d1047);
+  padding: 0;
+  overflow: hidden;
+  background: #0d0d0d;
   border: 2px solid rgba(139, 92, 246, 0.5);
 }
-.hand-card.classic-card .card-value { color: var(--accent); }
+.pile-card.classic-card { box-shadow: 0 0 20px rgba(139, 92, 246, 0.15); }
 .hand-card.classic-card:hover { border-color: var(--accent); }
 .hand-card.classic-card.selected { border-color: var(--accent); box-shadow: 0 0 18px rgba(139,92,246,0.5); }
 .classic-card .card-suit-name { display: none; }
+
+/* Image fills the card */
+.card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+}
+
+/* Points badge stays visible on top of image */
+.hand-card.classic-card .card-points-badge {
+  z-index: 2;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px);
+}
+.hand-card.classic-card.selected .card-points-badge { display: block; }
+
 .score-popup.suit-classic { color: var(--accent); }
 .pile-label.classic-label { color: var(--accent); }
 
@@ -1746,14 +1761,18 @@ function rebuildPilesDOM() {
   // Rebuild for current variant
   for (const key of gameState.suitKeys) {
     const suit = gameState.suits[key];
+    const isClassic = suit.cssClass === 'classic';
     const container = document.createElement('div');
     container.className = 'pile-container';
+    const pileInner = isClassic
+      ? `<img class="card-img" id="pile-${key}-img" src="Assets/${gameState.piles[key].value}.jpg" alt="${gameState.piles[key].value}">`
+      : `<span class="card-suit-icon">${suit.icon}</span>
+         <span class="card-value mono">${gameState.piles[key].value}</span>
+         <span class="card-suit-name">${suit.name}</span>`;
     container.innerHTML = `
       <span class="pile-label ${suit.cssClass}-label">${suit.name.toUpperCase()}</span>
       <div class="pile-card ${suit.cssClass}-card" id="pile-${key}" onclick="onPileClick('${key}')">
-        <span class="card-suit-icon">${suit.icon}</span>
-        <span class="card-value mono">${gameState.piles[key].value}</span>
-        <span class="card-suit-name">${suit.name}</span>
+        ${pileInner}
       </div>
       <span class="pile-points-preview" id="pile-${key}-preview"></span>
     `;
@@ -1813,6 +1832,12 @@ function playCard(card, pileKey) {
 function chooseAction(action) {
   const player = currentPlayer();
 
+  // Force scoring if this player is the last one with cards
+  const activePlayers = gameState.players.filter(p => p.hand.length > 0);
+  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
+    action = 'score';
+  }
+
   if (action === 'draw') {
     if (gameState.drawPile.length > 0) {
       const drawn = gameState.drawPile.pop();
@@ -1866,6 +1891,13 @@ function advanceTurn() {
 
   // Check game end
   if (checkGameEnd()) {
+    endGame();
+    return;
+  }
+
+  // Last player standing: they just had their one final turn → game over
+  const activeAfter = gameState.players.filter(p => p.hand.length > 0);
+  if (activeAfter.length === 1 && activeAfter[0].id === player.id) {
     endGame();
     return;
   }
@@ -2022,8 +2054,9 @@ function aiTakeTurn() {
     setTimeout(() => {
       showAIThinking(false);
 
-      // In final round, must score (can't draw)
-      if (gameState.finalRound || gameState.drawPile.length === 0) {
+      // Must score in final round, or if last player standing
+      const isLastStandingAI = gameState.players.filter(p => p.hand.length > 0).length === 1;
+      if (gameState.finalRound || gameState.drawPile.length === 0 || isLastStandingAI) {
         willScore = true;
       }
 
@@ -2277,7 +2310,13 @@ function renderPiles() {
   for (const key of gameState.suitKeys) {
     const pile = gameState.piles[key];
     const el = document.getElementById(`pile-${key}`);
-    el.querySelector('.card-value').textContent = pile.value;
+    // Classic variant: update image src instead of text
+    const imgEl = el.querySelector('.card-img');
+    if (imgEl) {
+      imgEl.src = `Assets/${pile.value}.jpg`;
+    } else {
+      el.querySelector('.card-value').textContent = pile.value;
+    }
 
     // Highlight if it's a valid target for selected card
     el.classList.remove('target-highlight');
@@ -2439,12 +2478,14 @@ function renderHand(player) {
     const pileValue = gameState.piles[card.suit].value;
     const pts = Math.abs(pileValue - card.value);
 
-    div.innerHTML = `
-      <span class="card-suit-icon">${suitIcon(card.suit)}</span>
-      <span class="card-value mono">${card.value}</span>
-      <span class="card-suit-name">${suitName(card.suit)}</span>
-      <span class="card-points-badge">+${pts}</span>
-    `;
+    const isClassic = suitCss(card.suit) === 'classic';
+    div.innerHTML = isClassic
+      ? `<img class="card-img" src="Assets/${card.value}.jpg" alt="${card.value}">
+         <span class="card-points-badge">+${pts}</span>`
+      : `<span class="card-suit-icon">${suitIcon(card.suit)}</span>
+         <span class="card-value mono">${card.value}</span>
+         <span class="card-suit-name">${suitName(card.suit)}</span>
+         <span class="card-points-badge">+${pts}</span>`;
 
     // Only interactive when it's this player's turn and phase is 'play'
     const canInteract = gameState.mode === 'online'
@@ -2511,8 +2552,9 @@ function renderActions() {
   } else if (gameState.turnPhase === 'choose') {
     const points = gameState.lastPlay ? gameState.lastPlay.points : 0;
 
-    // Draw button (only if draw pile not empty and not final round)
-    if (gameState.drawPile.length > 0 && !gameState.finalRound) {
+    // Draw button (only if draw pile not empty, not final round, and not last player standing)
+    const isLastStanding = gameState.players.filter(p => p.hand.length > 0).length === 1;
+    if (gameState.drawPile.length > 0 && !gameState.finalRound && !isLastStanding) {
       const drawBtn = document.createElement('button');
       drawBtn.className = 'btn btn-draw btn-sm';
       drawBtn.innerHTML = `&#128179; Draw Card`;
