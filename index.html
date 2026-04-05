@@ -207,7 +207,7 @@ body {
   padding: 0.75rem;
 }
 
-.player-count-btns .btn.selected {
+.btn.selected {
   background: rgba(139, 92, 246, 0.25);
   border-color: var(--accent);
   box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
@@ -991,11 +991,6 @@ body {
 /* === VARIANT BUTTONS === */
 .variant-btns { display: flex; gap: 0.75rem; }
 .variant-btns .btn { width: auto; flex: 1; padding: 0.75rem; }
-.variant-btns .btn.selected {
-  background: rgba(139, 92, 246, 0.25);
-  border-color: var(--accent);
-  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
-}
 
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
@@ -1246,6 +1241,8 @@ body {
 
     <div id="lobby-create" class="lobby-panel active">
       <input id="online-name" class="player-name-input" placeholder="Your name" maxlength="20" value="Player 1">
+      <label class="setup-label" style="margin-top:1rem;">Game Mode</label>
+      <div class="variant-btns" id="online-variant-btns"></div>
       <label class="setup-label" style="margin-top:1rem;">Players</label>
       <div class="player-count-btns" id="online-player-count"></div>
       <div id="online-ai-slots"></div>
@@ -2652,6 +2649,7 @@ let onlineState = {
 
 let onlineSetup = {
   playerCount: 2,
+  variant: 'standard',
   aiSlots: [] // array indexed by slot (slot 2..N), null = human, profileId string = AI
 };
 
@@ -2779,6 +2777,19 @@ function handleServerMessage(msg) {
 // --- Lobby UI ---
 
 function showOnlineLobby() {
+  // Build variant buttons
+  const variantDiv = document.getElementById('online-variant-btns');
+  if (variantDiv) {
+    variantDiv.innerHTML = '';
+    for (const [id, label] of [['standard', 'Standard (3 suits)'], ['classic', 'Classic (1-30)']]) {
+      const btn = document.createElement('button');
+      btn.className = 'btn' + (onlineSetup.variant === id ? ' selected' : '');
+      btn.textContent = label;
+      btn.onclick = () => { onlineSetup.variant = id; showOnlineLobby(); };
+      variantDiv.appendChild(btn);
+    }
+  }
+
   // Build player count buttons immediately — uses existing .btn / .selected CSS pattern
   const countDiv = document.getElementById('online-player-count');
   countDiv.innerHTML = '';
@@ -2894,7 +2905,7 @@ function createOnlineGame() {
       type: 'create',
       name: document.getElementById('online-name').value.trim() || 'Player',
       maxPlayers: onlineSetup.playerCount || onlineState.playerCount,
-      variant: setupState.variant || 'standard',
+      variant: onlineSetup.variant || 'standard',
       aiSlots: aiSlotsPayload
     });
   });
