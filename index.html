@@ -1032,20 +1032,15 @@ body {
   .seat-avatar-icon { font-size: 1rem; margin-bottom: 0; }
   .seat-badge { display: none; }
 
-  /* Position indicators so players know who is where */
-  .player-seat.visible::after {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    letter-spacing: 0.04em;
-    display: block;
-    text-align: center;
-    margin-top: 0.1rem;
-  }
-  .seat-top.visible::after       { content: "▲ across"; }
-  .seat-top-left.visible::after  { content: "↖ left"; }
-  .seat-top-right.visible::after { content: "↗ right"; }
-  .seat-left.visible::after      { content: "◀ left"; }
-  .seat-right.visible::after     { content: "▶ right"; }
+  /* Order seats left→right to reflect their position around the table */
+  .seat-left      { order: 1; }
+  .seat-top-left  { order: 2; }
+  .seat-top       { order: 3; }
+  .seat-top-right { order: 4; }
+  .seat-right     { order: 5; }
+
+  /* Hide suit name text inside pile cards */
+  .pile-card .card-suit-name { display: none; }
 
   /* Smaller cards */
   :root { --card-width: 62px; --card-height: 90px; }
