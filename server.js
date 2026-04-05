@@ -112,6 +112,14 @@ function handleCreate(ws, msg) {
   const name = (msg.name || '').trim().substring(0, 20) || 'Player';
   const maxPlayers = [2, 3, 4].includes(msg.maxPlayers) ? msg.maxPlayers : 2;
   const variant = ['standard', 'classic'].includes(msg.variant) ? msg.variant : 'standard';
+  const validProfiles = ['rookie', 'daytrader', 'tactician', 'strategist', 'expert'];
+  const aiSlots = Array.isArray(msg.aiSlots)
+    ? msg.aiSlots.slice(0, maxPlayers - 1).map(s => ({
+        profile: validProfiles.includes(s.profile) ? s.profile : 'rookie',
+        name: GL.AI_PROFILE_NAMES[s.profile] || 'AI'
+      }))
+    : [];
+  const humanSlots = maxPlayers - aiSlots.length; // at least 1 (the creator)
 
   // Leave current room if in one
   leaveCurrentRoom(ws);
@@ -121,6 +129,8 @@ function handleCreate(ws, msg) {
     id: roomId,
     hostName: name,
     maxPlayers,
+    humanSlots,
+    aiSlots,
     variant,
     players: [{ ws, name, connected: true, playerId: 0 }],
     state: 'waiting',
@@ -131,16 +141,28 @@ function handleCreate(ws, msg) {
   rooms.set(roomId, room);
   clients.set(ws, { roomId, playerId: 0, name });
 
+  // Build initial player list including AI slots
+  const initialPlayers = [
+    { name, connected: true, isAI: false },
+    ...aiSlots.map(s => ({ name: s.name, connected: true, isAI: true, aiProfile: s.profile }))
+  ];
   send(ws, {
     type: 'room_created',
     roomId,
     you: 0,
-    players: [{ name, connected: true }],
+    players: initialPlayers,
     maxPlayers,
+    humanSlots,
+    aiSlots,
     variant
   });
 
   console.log(`[Room ${roomId}] Created by ${name} (max ${maxPlayers})`);
+
+  // If all slots are AI (humanSlots === 1 = just the creator), start immediately
+  if (humanSlots === 1) {
+    startOnlineGame(room);
+  }
 }
 
 function handleJoin(ws, msg) {
@@ -150,7 +172,7 @@ function handleJoin(ws, msg) {
   const room = rooms.get(roomId);
   if (!room) return sendError(ws, 'Room not found');
   if (room.state !== 'waiting') return sendError(ws, 'Game already in progress');
-  if (room.players.length >= room.maxPlayers) return sendError(ws, 'Room is full');
+  if (room.players.length >= (room.humanSlots || room.maxPlayers)) return sendError(ws, 'Room is full');
 
   // Leave current room if in one
   leaveCurrentRoom(ws);
@@ -179,8 +201,8 @@ function handleJoin(ws, msg) {
 
   console.log(`[Room ${roomId}] ${name} joined (${room.players.length}/${room.maxPlayers})`);
 
-  // Auto-start when full
-  if (room.players.length === room.maxPlayers) {
+  // Auto-start when all human slots are filled
+  if (room.players.length === (room.humanSlots || room.maxPlayers)) {
     startOnlineGame(room);
   }
 }
@@ -193,7 +215,7 @@ function handleList(ws) {
         id,
         hostName: room.hostName,
         playerCount: room.players.length,
-        maxPlayers: room.maxPlayers,
+        maxPlayers: room.humanSlots || room.maxPlayers,
         variant: room.variant || 'standard'
       });
     }
@@ -259,18 +281,67 @@ function leaveCurrentRoom(ws) {
 // ============================================================
 
 function startOnlineGame(room) {
-  const playerNames = room.players.map(p => p.name);
+  // Combine human and AI player names
+  const humanNames = room.players.map(p => p.name);
+  const aiNames = (room.aiSlots || []).map(s => s.name);
+  const playerNames = [...humanNames, ...aiNames];
+
   room.gameState = GL.initializeGame(playerNames, room.variant || 'standard');
   room.state = 'playing';
-  room.gameState.gameLog.push('Market opens! Trading has begun.');
 
+  // Mark AI players in game state
+  (room.aiSlots || []).forEach((slot, i) => {
+    const idx = humanNames.length + i;
+    room.gameState.players[idx].isAI = true;
+    room.gameState.players[idx].aiProfile = slot.profile;
+  });
+
+  room.gameState.gameLog.push('Market opens! Trading has begun.');
   console.log(`[Room ${room.id}] Game started! (${playerNames.join(', ')})`);
 
-  // Send initial state to all players
   broadcastState(room);
-
-  // Send your_turn to the first player
   sendYourTurn(room);
+  triggerAITurns(room);
+}
+
+function triggerAITurns(room) {
+  const gs = room.gameState;
+  if (!gs || gs.phase !== 'playing') return;
+
+  const currentPlayer = gs.players[gs.currentPlayerIndex];
+  if (!currentPlayer || !currentPlayer.isAI) return;
+
+  const delay = 900 + Math.random() * 600;
+  setTimeout(() => {
+    if (!room.gameState || room.gameState.phase !== 'playing') return;
+
+    const { chosenPlay, willScore } = GL.aiChoosePlay(gs, gs.currentPlayerIndex);
+    if (!chosenPlay) return;
+
+    GL.playCard(gs, gs.currentPlayerIndex, chosenPlay.card);
+
+    const mustScore = gs.finalRound || gs.drawPile.length === 0;
+    GL.chooseAction(gs, gs.currentPlayerIndex, (mustScore || willScore) ? 'score' : 'draw');
+
+    const { gameOver } = GL.advanceTurn(gs);
+
+    if (gameOver) {
+      room.state = 'finished';
+      broadcastState(room);
+      broadcastToRoom(room, { type: 'game_over', rankings: GL.getRankings(gs) });
+      console.log(`[Room ${room.id}] Game over! Winner: ${GL.getRankings(gs)[0].name}`);
+      setTimeout(() => {
+        if (rooms.has(room.id) && room.state === 'finished') {
+          rooms.delete(room.id);
+          console.log(`[Room ${room.id}] Cleaned up`);
+        }
+      }, 5 * 60 * 1000);
+    } else {
+      broadcastState(room);
+      sendYourTurn(room);
+      triggerAITurns(room); // chain to next AI if needed
+    }
+  }, delay);
 }
 
 // ============================================================
@@ -298,6 +369,7 @@ function handlePlayCard(ws, msg) {
   GL.playCard(gs, client.playerId, card);
   broadcastState(room);
   sendYourTurn(room); // same player, now in 'choose' phase
+  triggerAITurns(room); // No-op if current player is human (choose phase)
 }
 
 function handleChooseAction(ws, msg) {
@@ -335,6 +407,7 @@ function handleChooseAction(ws, msg) {
 
   broadcastState(room);
   sendYourTurn(room);
+  triggerAITurns(room);
 }
 
 // ============================================================

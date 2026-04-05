@@ -217,6 +217,95 @@ function getRankings(gs) {
     .map((p, i) => ({ name: p.name, score: p.score, rank: i + 1 }));
 }
 
+// ============================================================
+// === SERVER-SIDE AI =========================================
+// ============================================================
+
+const AI_PROFILE_NAMES = {
+  rookie: 'Alex', daytrader: 'Sam', tactician: 'Dana',
+  strategist: 'Marcus', expert: 'Viktor'
+};
+
+function aiChoosePlay(gs, playerIndex) {
+  const player = gs.players[playerIndex];
+  const plays = getValidPlays(player.hand, gs.piles);
+  if (!plays.length) return { chosenPlay: null, willScore: false };
+
+  const profileId = player.aiProfile || 'rookie';
+  const finalRound = gs.finalRound || gs.drawPile.length === 0;
+
+  switch (profileId) {
+    case 'daytrader': return _aiMyopicGreedy(plays, finalRound);
+    case 'tactician': return _aiHeuristic(plays, finalRound);
+    case 'strategist': return _aiDynamicBaiting(gs, plays, finalRound);
+    case 'expert': return _aiMinimax(gs, player, plays, finalRound);
+    default: return _aiRandom(plays, finalRound);
+  }
+}
+
+function _aiRandom(plays, finalRound) {
+  return {
+    chosenPlay: plays[Math.floor(Math.random() * plays.length)],
+    willScore: finalRound || Math.random() < 0.5
+  };
+}
+
+function _aiMyopicGreedy(plays, finalRound) {
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  if (finalRound || sorted[0].points >= 6) return { chosenPlay: sorted[0], willScore: true };
+  return { chosenPlay: sorted[sorted.length - 1], willScore: false };
+}
+
+function _aiHeuristic(plays, finalRound) {
+  const T = 9;
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  if (finalRound || sorted[0].points >= T) return { chosenPlay: sorted[0], willScore: true };
+  const mid = plays.filter(p => Math.abs(p.card.value - 8) <= 3);
+  const pick = mid.length ? mid.sort((a, b) => a.points - b.points)[0] : sorted[sorted.length - 1];
+  return { chosenPlay: pick, willScore: false };
+}
+
+function _aiDynamicBaiting(gs, plays, finalRound) {
+  const R = Math.min(5, Math.round((gs.drawPile.length / 42) * 5));
+  const T = 7 + R;
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  if (finalRound || sorted[0].points >= T) return { chosenPlay: sorted[0], willScore: true };
+  for (const suit of gs.suitKeys) {
+    const sc = plays.filter(p => p.card.suit === suit).sort((a, b) => a.card.value - b.card.value);
+    for (let i = 0; i < sc.length - 1; i++) {
+      for (let j = i + 1; j < sc.length; j++) {
+        if (sc[j].card.value - sc[i].card.value >= 11) {
+          if (Math.abs(gs.piles[suit].value - sc[i].card.value) <= 3)
+            return { chosenPlay: sc[i], willScore: false };
+        }
+      }
+    }
+  }
+  const mid = plays.filter(p => Math.abs(p.card.value - 8) <= 3);
+  return { chosenPlay: mid.length ? mid.sort((a,b)=>a.points-b.points)[0] : sorted[sorted.length-1], willScore: false };
+}
+
+function _aiMinimax(gs, player, plays, finalRound) {
+  const playedSet = new Set((gs.playedCards || []).map(c => `${c.suit}-${c.value}`));
+  const mySet = new Set(player.hand.map(c => `${c.suit}-${c.value}`));
+  const unaccounted = {};
+  for (const suit of gs.suitKeys) {
+    const cfg = gs.suitKeys.length === 1 ? { maxValue: 30 } : { maxValue: 15 };
+    unaccounted[suit] = [];
+    for (let v = 1; v <= cfg.maxValue; v++) {
+      if (!playedSet.has(`${suit}-${v}`) && !mySet.has(`${suit}-${v}`)) unaccounted[suit].push(v);
+    }
+  }
+  const scored = plays.map(p => {
+    const nv = p.card.value, suit = p.card.suit;
+    const opp = (unaccounted[suit] || []).reduce((m, v) => Math.max(m, Math.abs(nv - v)), 0);
+    const danger = (unaccounted[suit] || []).some(v => Math.abs(nv - v) >= 10);
+    return { ...p, ev: p.points - opp * 0.4 - ((nv <= 2 || nv >= 14) && danger ? 8 : 0) };
+  }).sort((a, b) => b.ev - a.ev);
+  const nearEnd = finalRound || gs.drawPile.length <= gs.players.length;
+  return { chosenPlay: scored[0], willScore: nearEnd || scored[0].ev >= 3 };
+}
+
 function sanitizeState(gs, forPlayerIndex) {
   return {
     variant: gs.variant || 'standard',
@@ -237,6 +326,8 @@ function sanitizeState(gs, forPlayerIndex) {
       score: p.score,
       cardCount: p.hand.length,
       connected: p.connected !== false,
+      isAI: p.isAI || false,
+      aiProfile: p.aiProfile || null,
       isYou: i === forPlayerIndex
     })),
     yourHand: gs.players[forPlayerIndex].hand,
@@ -246,8 +337,9 @@ function sanitizeState(gs, forPlayerIndex) {
 
 module.exports = {
   VARIANT_CONFIG, SUITS, SUIT_KEYS, CARDS_PER_PLAYER,
+  AI_PROFILE_NAMES,
   shuffle, createDeck, suitName,
-  getValidPlays, initializeGame,
+  getValidPlays, initializeGame, aiChoosePlay,
   playCard, chooseAction, advanceTurn,
   nextPlayer, checkGameEnd, getRankings,
   sanitizeState

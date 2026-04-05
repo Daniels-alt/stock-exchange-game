@@ -1248,6 +1248,7 @@ body {
       <input id="online-name" class="player-name-input" placeholder="Your name" maxlength="20" value="Player 1">
       <label class="setup-label" style="margin-top:1rem;">Players</label>
       <div class="player-count-btns" id="online-player-count"></div>
+      <div id="online-ai-slots"></div>
       <button class="btn btn-primary" style="margin-top:1.5rem; width:100%;" onclick="createOnlineGame()">Create Game</button>
     </div>
 
@@ -2649,6 +2650,11 @@ let onlineState = {
   reconnecting: false
 };
 
+let onlineSetup = {
+  playerCount: 2,
+  aiSlots: [] // array indexed by slot (slot 2..N), null = human, profileId string = AI
+};
+
 // --- WebSocket Connection ---
 
 function connectWS(callback) {
@@ -2731,7 +2737,8 @@ function handleServerMessage(msg) {
     case 'room_created':
       onlineState.roomId = msg.roomId;
       onlineState.playerIndex = msg.you;
-      showWaitingRoom(msg.roomId, msg.players, msg.maxPlayers);
+      onlineState.playerCount = msg.humanSlots || msg.maxPlayers;
+      showWaitingRoom(msg.roomId, msg.players, msg.maxPlayers, msg.humanSlots);
       break;
     case 'room_joined':
       onlineState.roomId = msg.roomId;
@@ -2777,16 +2784,95 @@ function showOnlineLobby() {
   countDiv.innerHTML = '';
   [2, 3, 4].forEach(n => {
     const btn = document.createElement('button');
-    btn.className = 'btn' + (onlineState.playerCount === n ? ' selected' : '');
+    btn.className = 'btn' + (onlineSetup.playerCount === n ? ' selected' : '');
     btn.textContent = `${n} Players`;
     btn.onclick = () => {
+      onlineSetup.playerCount = n;
       onlineState.playerCount = n;
       countDiv.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
+      buildAISlotUI();
     };
     countDiv.appendChild(btn);
   });
+  buildAISlotUI();
   showScreen('lobby-screen');
+}
+
+function buildAISlotUI() {
+  const container = document.getElementById('online-ai-slots');
+  if (!container) return;
+  const count = onlineSetup.playerCount;
+  const slotCount = count - 1; // slots 2..N (slot 1 is always the creator)
+  // Trim or extend aiSlots array to match slotCount
+  while (onlineSetup.aiSlots.length < slotCount) onlineSetup.aiSlots.push(null);
+  onlineSetup.aiSlots = onlineSetup.aiSlots.slice(0, slotCount);
+
+  if (slotCount === 0) { container.innerHTML = ''; return; }
+
+  const profileOptions = [
+    { id: 'rookie', label: 'Rookie' },
+    { id: 'daytrader', label: 'Day Trader' },
+    { id: 'tactician', label: 'Tactician' },
+    { id: 'strategist', label: 'Strategist' },
+    { id: 'expert', label: 'Expert' }
+  ];
+
+  container.innerHTML = '';
+  const label = document.createElement('label');
+  label.className = 'setup-label';
+  label.style.marginTop = '1rem';
+  label.textContent = 'Player Slots';
+  container.appendChild(label);
+
+  for (let i = 0; i < slotCount; i++) {
+    const slotNum = i + 2; // slot 2, 3, 4
+    const isAI = onlineSetup.aiSlots[i] !== null;
+    const row = document.createElement('div');
+    row.className = 'ai-slot-row';
+    row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;';
+
+    const slotLabel = document.createElement('span');
+    slotLabel.style.cssText = 'min-width:4.5rem;font-size:0.85rem;opacity:0.7;';
+    slotLabel.textContent = `Slot ${slotNum}:`;
+    row.appendChild(slotLabel);
+
+    const humanBtn = document.createElement('button');
+    humanBtn.className = 'btn btn-sm' + (!isAI ? ' selected' : '');
+    humanBtn.textContent = 'Human';
+    humanBtn.onclick = () => {
+      onlineSetup.aiSlots[i] = null;
+      buildAISlotUI();
+    };
+
+    const aiBtn = document.createElement('button');
+    aiBtn.className = 'btn btn-sm' + (isAI ? ' selected' : '');
+    aiBtn.textContent = 'AI';
+    aiBtn.onclick = () => {
+      onlineSetup.aiSlots[i] = onlineSetup.aiSlots[i] || 'rookie';
+      buildAISlotUI();
+    };
+
+    row.appendChild(humanBtn);
+    row.appendChild(aiBtn);
+
+    if (isAI) {
+      const sel = document.createElement('select');
+      sel.className = 'player-name-input';
+      sel.style.cssText = 'flex:1;padding:0.3rem 0.5rem;font-size:0.85rem;';
+      for (const p of profileOptions) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.label;
+        if (onlineSetup.aiSlots[i] === p.id) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.onchange = (e) => { onlineSetup.aiSlots[i] = e.target.value; };
+      row.appendChild(sel);
+    }
+
+    container.appendChild(row);
+  }
 }
 
 function switchLobbyTab(tab) {
@@ -2801,11 +2887,15 @@ function switchLobbyTab(tab) {
 
 function createOnlineGame() {
   connectWS(() => {
+    const aiSlotsPayload = (onlineSetup.aiSlots || [])
+      .filter(s => s !== null)
+      .map(profile => ({ profile }));
     wsSend({
       type: 'create',
       name: document.getElementById('online-name').value.trim() || 'Player',
-      maxPlayers: onlineState.playerCount,
-      variant: setupState.variant || 'standard'
+      maxPlayers: onlineSetup.playerCount || onlineState.playerCount,
+      variant: setupState.variant || 'standard',
+      aiSlots: aiSlotsPayload
     });
   });
 }
@@ -2856,29 +2946,44 @@ function joinFromBrowse(roomId) {
 
 // --- Waiting Room ---
 
-function showWaitingRoom(roomId, players, maxPlayers) {
+function showWaitingRoom(roomId, players, maxPlayers, humanSlots) {
   document.getElementById('waiting-room-code').textContent = roomId;
   document.getElementById('disconnect-notices').innerHTML = '';
   showScreen('waiting-screen');
-  updateWaitingRoom(players, maxPlayers);
+  updateWaitingRoom(players, maxPlayers, humanSlots);
 }
 
-function updateWaitingRoom(players, maxPlayers) {
+const AI_DIFFICULTY_LABELS = {
+  rookie: 'Rookie', daytrader: 'Day Trader', tactician: 'Tactician',
+  strategist: 'Strategist', expert: 'Expert'
+};
+
+function updateWaitingRoom(players, maxPlayers, humanSlots) {
   if (!maxPlayers) {
     // Infer from onlineState
     maxPlayers = onlineState.playerCount || players.length;
   }
+  const effectiveHumanSlots = humanSlots || maxPlayers;
   const container = document.getElementById('waiting-players');
   let html = '';
   for (let i = 0; i < maxPlayers; i++) {
     const p = players[i];
     if (p) {
-      html += `
-        <div class="waiting-slot filled">
-          <div class="waiting-slot-icon">\uD83D\uDC64</div>
-          <div class="waiting-slot-name">${p.name}</div>
-        </div>`;
-    } else {
+      if (p.isAI) {
+        const diffLabel = AI_DIFFICULTY_LABELS[p.aiProfile] || p.aiProfile || 'AI';
+        html += `
+          <div class="waiting-slot filled">
+            <div class="waiting-slot-icon">\uD83E\uDD16</div>
+            <div class="waiting-slot-name">${p.name}<br><span style="font-size:0.75rem;opacity:0.7;">AI &bull; ${diffLabel}</span></div>
+          </div>`;
+      } else {
+        html += `
+          <div class="waiting-slot filled">
+            <div class="waiting-slot-icon">\uD83D\uDC64</div>
+            <div class="waiting-slot-name">${p.name}</div>
+          </div>`;
+      }
+    } else if (i < effectiveHumanSlots) {
       html += `
         <div class="waiting-slot empty">
           <div class="waiting-slot-icon">?</div>
@@ -2888,9 +2993,10 @@ function updateWaitingRoom(players, maxPlayers) {
   }
   container.innerHTML = html;
   const status = document.getElementById('waiting-status');
-  const filled = players.length;
-  if (filled < maxPlayers) {
-    status.textContent = `${filled}/${maxPlayers} players. Share the room code to invite others!`;
+  const humanPlayers = players.filter(p => !p.isAI);
+  const filled = humanPlayers.length;
+  if (filled < effectiveHumanSlots) {
+    status.textContent = `${filled}/${effectiveHumanSlots} human players. Share the room code to invite others!`;
   } else {
     status.textContent = 'All players joined! Starting game...';
   }
@@ -2924,8 +3030,8 @@ function applyOnlineState(serverState) {
     players: serverState.players.map((p, i) => ({
       id: i,
       name: p.name,
-      isAI: false,
-      aiProfile: null,
+      isAI: p.isAI || false,
+      aiProfile: p.aiProfile || null,
       hand: p.isYou ? serverState.yourHand : new Array(p.cardCount).fill(null),
       score: p.score,
       scoreHistory: [],
