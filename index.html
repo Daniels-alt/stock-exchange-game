@@ -966,6 +966,26 @@ body {
 #seats-row { display: contents; }
 #piles-row { display: contents; }
 
+/* === CLASSIC VARIANT CARDS === */
+.pile-card.classic-card {
+  background: linear-gradient(135deg, #1a0a2e, #2d1047);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+}
+.pile-card.classic-card .card-value { color: var(--accent); }
+.hand-card.classic-card { border-color: var(--accent); }
+.hand-card.classic-card .card-value { color: var(--accent); }
+.score-popup.suit-classic { color: var(--accent); }
+.pile-label.classic-label { color: var(--accent); }
+
+/* === TOP BAR INFO === */
+.top-bar-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.last-action { font-size: 0.72rem; color: var(--text-muted); min-height: 1em; }
+
+/* === VARIANT BUTTONS === */
+.variant-btns { display: flex; gap: 0.75rem; }
+.variant-btns .btn { width: auto; flex: 1; padding: 0.75rem; }
+
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
   .menu-title { font-size: 2.2rem; }
@@ -1176,6 +1196,10 @@ body {
     <h2 class="setup-title">Game Setup</h2>
 
     <div class="setup-section">
+      <label class="setup-label">GAME MODE</label>
+      <div class="variant-btns" id="variant-btns"></div>
+    </div>
+    <div class="setup-section">
       <label class="setup-label">Number of Players</label>
       <div class="player-count-btns" id="player-count-btns"></div>
     </div>
@@ -1259,7 +1283,10 @@ body {
   </div>
   <div class="game-layout">
     <div class="game-top-bar">
-      <div class="turn-indicator" id="turn-indicator"></div>
+      <div class="top-bar-info">
+        <div class="turn-indicator" id="turn-indicator"></div>
+        <div class="last-action" id="last-action"></div>
+      </div>
       <button class="btn-exit" onclick="exitGame()" title="Exit to main menu">&#x2715; Exit</button>
     </div>
     <div class="market-area" id="market-area">
@@ -1389,13 +1416,30 @@ body {
 // === CONFIG & CONSTANTS =====================================
 // ============================================================
 
-const SUITS = {
-  tech: { name: 'Tech', icon: '\u{1F4BB}', color: '#00d4ff', cssClass: 'tech' },
-  realEstate: { name: 'Real Estate', icon: '\u{1F3E2}', color: '#ffc107', cssClass: 'realestate' },
-  energy: { name: 'Energy', icon: '\u26A1', color: '#00e676', cssClass: 'energy' }
+const VARIANT_CONFIG = {
+  standard: {
+    suits: {
+      tech: { name: 'Tech', icon: '\u{1F4BB}', color: '#00d4ff', cssClass: 'tech' },
+      realEstate: { name: 'Real Estate', icon: '\u{1F3E2}', color: '#ffc107', cssClass: 'realestate' },
+      energy: { name: 'Energy', icon: '\u26A1', color: '#00e676', cssClass: 'energy' }
+    },
+    suitKeys: ['tech', 'realEstate', 'energy'],
+    startValue: 8,
+    maxValue: 15
+  },
+  classic: {
+    suits: {
+      classic: { name: 'Classic', icon: '\u{1F3AF}', color: '#8b5cf6', cssClass: 'classic' }
+    },
+    suitKeys: ['classic'],
+    startValue: 15,
+    maxValue: 30
+  }
 };
 
-const SUIT_KEYS = ['tech', 'realEstate', 'energy'];
+// Shorthand for standard variant (backwards compat)
+const SUITS = VARIANT_CONFIG.standard.suits;
+const SUIT_KEYS = VARIANT_CONFIG.standard.suitKeys;
 const CARDS_PER_PLAYER = { 2: 6, 3: 5, 4: 4 };
 
 // Pool of human names for AI players — assigned randomly and uniquely each game
@@ -1466,6 +1510,7 @@ const AI_PROFILES = [
 let gameState = null;
 let setupState = {
   mode: 'ai',
+  variant: 'standard',
   playerCount: 2,
   aiProfiles: ['rookie'],
   playerNames: ['Player 1']
@@ -1484,11 +1529,12 @@ function shuffle(arr) {
   return a;
 }
 
-function createDeck() {
+function createDeck(variant = 'standard') {
+  const cfg = VARIANT_CONFIG[variant] || VARIANT_CONFIG.standard;
   const deck = [];
-  for (const suit of SUIT_KEYS) {
-    for (let v = 1; v <= 15; v++) {
-      if (v === 8) continue; // 8s go to piles
+  for (const suit of cfg.suitKeys) {
+    for (let v = 1; v <= cfg.maxValue; v++) {
+      if (v === cfg.startValue) continue;
       deck.push({ suit, value: v });
     }
   }
@@ -1497,9 +1543,10 @@ function createDeck() {
 
 function cardId(card) { return `${card.suit}-${card.value}`; }
 
-function suitIcon(suit) { return SUITS[suit].icon; }
-function suitName(suit) { return SUITS[suit].name; }
-function suitCss(suit) { return SUITS[suit].cssClass; }
+function getSuits() { return gameState?.suits || SUITS; }
+function suitIcon(suit) { return (getSuits()[suit] || {}).icon || suit; }
+function suitName(suit) { return (getSuits()[suit] || {}).name || suit; }
+function suitCss(suit)  { return (getSuits()[suit] || {}).cssClass || suit; }
 
 // ============================================================
 // === SCREEN MANAGEMENT ======================================
@@ -1523,6 +1570,20 @@ function startSetup(mode) {
 
 function buildSetupUI() {
   const mode = setupState.mode;
+
+  // Variant buttons
+  const variantBtns = document.getElementById('variant-btns');
+  if (variantBtns) {
+    variantBtns.innerHTML = '';
+    for (const [id, label] of [['standard', 'Standard (3 suits)'], ['classic', 'Classic (1-30)']]) {
+      const btn = document.createElement('button');
+      btn.className = 'btn' + (setupState.variant === id ? ' selected' : '');
+      btn.textContent = label;
+      btn.onclick = () => { setupState.variant = id; buildSetupUI(); };
+      variantBtns.appendChild(btn);
+    }
+  }
+
   const countBtns = document.getElementById('player-count-btns');
   countBtns.innerHTML = '';
   for (let n = 2; n <= 4; n++) {
@@ -1625,26 +1686,25 @@ function startGame() {
     }
   }
 
+  const variant = setupState.variant || 'standard';
+  const vcfg = VARIANT_CONFIG[variant];
+
   // Create and shuffle deck
-  let deck = shuffle(createDeck());
+  let deck = shuffle(createDeck(variant));
 
   // Deal cards
   const cardsPerPlayer = CARDS_PER_PLAYER[pCount];
   for (const player of players) {
     player.hand = deck.splice(0, cardsPerPlayer);
     // Sort hand by suit then value
-    player.hand.sort((a, b) => SUIT_KEYS.indexOf(a.suit) - SUIT_KEYS.indexOf(b.suit) || a.value - b.value);
+    player.hand.sort((a, b) => vcfg.suitKeys.indexOf(a.suit) - vcfg.suitKeys.indexOf(b.suit) || a.value - b.value);
   }
 
   gameState = {
     phase: 'playing',
     mode: mode,
     players: players,
-    piles: {
-      tech: { value: 8 },
-      realEstate: { value: 8 },
-      energy: { value: 8 }
-    },
+    piles: Object.fromEntries(vcfg.suitKeys.map(k => [k, { value: vcfg.startValue }])),
     drawPile: deck,
     currentPlayerIndex: 0,
     turnPhase: 'play', // 'play' or 'choose'
@@ -1655,18 +1715,41 @@ function startGame() {
     finalRound: false,
     finalRoundPlayers: new Set(),
     tickerMessages: [], // kept for compat
-    stockState: {
-      tech:       { name: 'Tech',        value: 8, delta: null },
-      realEstate: { name: 'Real Estate', value: 8, delta: null },
-      energy:     { name: 'Energy',      value: 8, delta: null }
-    }
+    variant,
+    suitKeys: vcfg.suitKeys,
+    suits: vcfg.suits,
+    stockState: Object.fromEntries(vcfg.suitKeys.map(k => [k, { name: vcfg.suits[k].name, value: vcfg.startValue, delta: null }]))
   };
 
   addLog('Market opens! Trading has begun.');
   showScreen('game-screen');
-  renderTicker(); // Reset ticker banner for new game
+  rebuildPilesDOM();
+  renderTicker();
   renderGame();
   beginTurn();
+}
+
+function rebuildPilesDOM() {
+  const pilesRow = document.getElementById('piles-row');
+  const drawPileDisplay = pilesRow.querySelector('.draw-pile-display');
+  // Remove existing pile-containers
+  pilesRow.querySelectorAll('.pile-container').forEach(el => el.remove());
+  // Rebuild for current variant
+  for (const key of gameState.suitKeys) {
+    const suit = gameState.suits[key];
+    const container = document.createElement('div');
+    container.className = 'pile-container';
+    container.innerHTML = `
+      <span class="pile-label ${suit.cssClass}-label">${suit.name.toUpperCase()}</span>
+      <div class="pile-card ${suit.cssClass}-card" id="pile-${key}" onclick="onPileClick('${key}')">
+        <span class="card-suit-icon">${suit.icon}</span>
+        <span class="card-value mono">${gameState.piles[key].value}</span>
+        <span class="card-suit-name">${suit.name}</span>
+      </div>
+      <span class="pile-points-preview" id="pile-${key}-preview"></span>
+    `;
+    pilesRow.insertBefore(container, drawPileDisplay);
+  }
 }
 
 function restartGame() {
@@ -1709,8 +1792,11 @@ function playCard(card, pileKey) {
   gameState.turnPhase = 'choose';
 
   const direction = card.value > pileValue ? '\u2191' : (card.value < pileValue ? '\u2193' : '\u2194');
-  addLog(`${player.name} played ${suitName(card.suit)} ${card.value} ${direction}`);
+  const playMsg = `${player.name} played ${suitName(card.suit)} ${card.value} ${direction}`;
+  addLog(playMsg);
   addTicker(card.suit, card.value, card.value - pileValue);
+  const laEl = document.getElementById('last-action');
+  if (laEl) laEl.textContent = playMsg;
 
   renderGame();
 }
@@ -1722,8 +1808,10 @@ function chooseAction(action) {
     if (gameState.drawPile.length > 0) {
       const drawn = gameState.drawPile.pop();
       player.hand.push(drawn);
-      player.hand.sort((a, b) => SUIT_KEYS.indexOf(a.suit) - SUIT_KEYS.indexOf(b.suit) || a.value - b.value);
+      player.hand.sort((a, b) => gameState.suitKeys.indexOf(a.suit) - gameState.suitKeys.indexOf(b.suit) || a.value - b.value);
       addLog(`${player.name} drew a card. (${gameState.drawPile.length} remaining)`);
+      const laElDraw = document.getElementById('last-action');
+      if (laElDraw) laElDraw.textContent = `${player.name} drew a card`;
     }
   } else if (action === 'score') {
     const pts = gameState.lastPlay.points;
@@ -1736,6 +1824,8 @@ function chooseAction(action) {
     });
     addLog(`${player.name} sold for <span class="log-positive">+${pts} VP</span>! (Total: ${player.score})`);
     showScorePopup(pts, gameState.lastPlay.card.suit);
+    const laElScore = document.getElementById('last-action');
+    if (laElScore) laElScore.textContent = `${player.name} sold for +${pts} VP`;
   }
 
   gameState.lastPlay = null;
@@ -2000,7 +2090,7 @@ function aiDynamicBaiting(player, plays) {
   }
 
   // Baiting: look for two same-suit cards with gap >= 11
-  for (const suit of SUIT_KEYS) {
+  for (const suit of gameState.suitKeys) {
     const suitCards = player.hand.filter(c => c.suit === suit).sort((a, b) => a.value - b.value);
     for (let i = 0; i < suitCards.length; i++) {
       for (let j = i + 1; j < suitCards.length; j++) {
@@ -2039,10 +2129,11 @@ function aiMinimaxExpert(player, plays) {
 
   // For each suit: which card values are still unaccounted for (opponent hand or draw pile)?
   const unaccounted = {};
-  for (const suit of SUIT_KEYS) {
+  for (const suit of gameState.suitKeys) {
     unaccounted[suit] = [];
-    for (let v = 1; v <= 15; v++) {
-      if (v === 8) continue; // pile starters are always out of play
+    const cfg = VARIANT_CONFIG[gameState.variant || 'standard'] || VARIANT_CONFIG.standard;
+    for (let v = 1; v <= cfg.maxValue; v++) {
+      if (v === cfg.startValue) continue; // pile starters are always out of play
       if (!playedSet.has(`${suit}-${v}`) && !mySet.has(`${suit}-${v}`)) {
         unaccounted[suit].push(v);
       }
@@ -2064,7 +2155,7 @@ function aiMinimaxExpert(player, plays) {
 
   // Defensive override: if a pile is already extreme AND dangerous cards are unaccounted,
   // sacrifice points to neutralise it — play the hand card closest to 8 on that pile.
-  for (const suit of SUIT_KEYS) {
+  for (const suit of gameState.suitKeys) {
     const pileVal  = gameState.piles[suit].value;
     const extreme  = pileVal <= 2 || pileVal >= 14;
     const threat   = unaccounted[suit].some(v => Math.abs(pileVal - v) >= 10);
@@ -2122,12 +2213,13 @@ function renderTicker() {
     el.innerHTML = '<span class="ticker-item">MARKET OPEN \u2014 Waiting for trades...</span>';
     return;
   }
-  const anyTrade = SUIT_KEYS.some(k => gameState.stockState[k].delta !== null);
+  const keys = gameState.suitKeys;
+  const anyTrade = keys.some(k => gameState.stockState[k].delta !== null);
   if (!anyTrade) {
     el.innerHTML = '<span class="ticker-item">MARKET OPEN \u2014 Waiting for trades...</span>';
     return;
   }
-  el.innerHTML = SUIT_KEYS.map(key => {
+  el.innerHTML = keys.map(key => {
     const s = gameState.stockState[key];
     if (s.delta === null) {
       return `<span class="ticker-item">${s.name} <span style="color:var(--text-muted)">${s.value} \u2014</span></span>`;
@@ -2173,7 +2265,7 @@ function renderGame() {
 }
 
 function renderPiles() {
-  for (const key of SUIT_KEYS) {
+  for (const key of gameState.suitKeys) {
     const pile = gameState.piles[key];
     const el = document.getElementById(`pile-${key}`);
     el.querySelector('.card-value').textContent = pile.value;
@@ -2701,7 +2793,8 @@ function createOnlineGame() {
     wsSend({
       type: 'create',
       name: document.getElementById('online-name').value.trim() || 'Player',
-      maxPlayers: onlineState.playerCount
+      maxPlayers: onlineState.playerCount,
+      variant: setupState.variant || 'standard'
     });
   });
 }
@@ -2829,6 +2922,9 @@ function applyOnlineState(serverState) {
     })),
     piles: serverState.piles,
     drawPile: new Array(serverState.drawPileCount).fill(null),
+    variant: serverState.variant || 'standard',
+    suitKeys: serverState.suitKeys || SUIT_KEYS,
+    suits: serverState.suits || SUITS,
     playedCards: [],
     currentPlayerIndex: serverState.currentPlayerIndex,
     turnPhase: serverState.turnPhase,
@@ -2843,8 +2939,16 @@ function applyOnlineState(serverState) {
 
   onlineState.playerIndex = myIndex;
   showScreen('game-screen');
+  rebuildPilesDOM();
   renderGame();
   renderTicker();
+  if (serverState.lastScore) {
+    showScorePopup(serverState.lastScore.points, serverState.lastScore.suit);
+  }
+  if (serverState.lastActionText) {
+    const el = document.getElementById('last-action');
+    if (el) el.textContent = serverState.lastActionText;
+  }
 }
 
 // --- Online Game Over ---

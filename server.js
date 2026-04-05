@@ -111,6 +111,7 @@ function generateRoomId() {
 function handleCreate(ws, msg) {
   const name = (msg.name || '').trim().substring(0, 20) || 'Player';
   const maxPlayers = [2, 3, 4].includes(msg.maxPlayers) ? msg.maxPlayers : 2;
+  const variant = ['standard', 'classic'].includes(msg.variant) ? msg.variant : 'standard';
 
   // Leave current room if in one
   leaveCurrentRoom(ws);
@@ -120,6 +121,7 @@ function handleCreate(ws, msg) {
     id: roomId,
     hostName: name,
     maxPlayers,
+    variant,
     players: [{ ws, name, connected: true, playerId: 0 }],
     state: 'waiting',
     gameState: null,
@@ -134,7 +136,8 @@ function handleCreate(ws, msg) {
     roomId,
     you: 0,
     players: [{ name, connected: true }],
-    maxPlayers
+    maxPlayers,
+    variant
   });
 
   console.log(`[Room ${roomId}] Created by ${name} (max ${maxPlayers})`);
@@ -190,7 +193,8 @@ function handleList(ws) {
         id,
         hostName: room.hostName,
         playerCount: room.players.length,
-        maxPlayers: room.maxPlayers
+        maxPlayers: room.maxPlayers,
+        variant: room.variant || 'standard'
       });
     }
   }
@@ -256,7 +260,7 @@ function leaveCurrentRoom(ws) {
 
 function startOnlineGame(room) {
   const playerNames = room.players.map(p => p.name);
-  room.gameState = GL.initializeGame(playerNames);
+  room.gameState = GL.initializeGame(playerNames, room.variant || 'standard');
   room.state = 'playing';
   room.gameState.gameLog.push('Market opens! Trading has begun.');
 
