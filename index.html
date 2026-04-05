@@ -962,10 +962,16 @@ body {
 .log-entry .log-negative { color: var(--danger); }
 .log-entry .log-neutral { color: var(--tech); }
 
+/* Desktop: wrappers are invisible — children participate in market-area flex directly */
+#seats-row { display: contents; }
+#piles-row { display: contents; }
+
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
   .menu-title { font-size: 2.2rem; }
   .btn { width: 280px; padding: 0.85rem 2rem; }
+  /* Don't override width inside flex containers (e.g. setup action buttons) */
+  .setup-container .btn { width: auto; }
   .market-area { gap: 1.5rem; flex-wrap: wrap; }
   :root { --card-width: 72px; --card-height: 105px; }
   .pile-card .card-value { font-size: 1.8rem; }
@@ -973,6 +979,78 @@ body {
   .game-log { display: none; }
   .scores-bar { gap: 0.5rem; }
   .score-item { font-size: 0.75rem; padding: 0.2rem 0.5rem; }
+}
+
+@media (max-width: 520px) {
+  /* === Setup screen === */
+  .setup-container { padding: 1.25rem; width: 96%; }
+  .setup-title { font-size: 1.4rem; margin-bottom: 1.25rem; }
+  .setup-section { margin-bottom: 1rem; }
+
+  /* === Game screen layout: seats row above piles row === */
+  .market-area {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    align-items: center;
+  }
+
+  /* Seats row: horizontal strip */
+  #seats-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  /* Piles row: horizontal, centered */
+  #piles-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  /* Seats: static flow inside #seats-row */
+  .player-seat {
+    position: static;
+    min-width: 0;
+    width: auto;
+    padding: 0.3rem 0.5rem;
+    gap: 0.15rem;
+    transform: none !important;
+    top: auto !important; left: auto !important; right: auto !important;
+  }
+  .seat-name { font-size: 0.72rem; max-width: 80px; }
+  .seat-stats { gap: 0.35rem; margin-top: 0; }
+  .seat-score, .seat-cards { font-size: 0.75rem; }
+  .seat-avatar-icon { font-size: 1rem; margin-bottom: 0; }
+  .seat-badge { display: none; }
+
+  /* Smaller cards */
+  :root { --card-width: 62px; --card-height: 90px; }
+  .pile-card .card-value { font-size: 1.5rem; }
+  .pile-card .card-suit-icon { font-size: 1rem; margin-bottom: 0.1rem; }
+  .pile-card .card-suit-name { font-size: 0.48rem; }
+  .pile-label { font-size: 0.62rem; }
+  .pile-container { gap: 0.3rem; }
+  .hand-card .card-value { font-size: 1.35rem; }
+  .hand-card .card-suit-icon { font-size: 1rem; }
+  .draw-pile-visual { font-size: 0.7rem; }
+  .draw-pile-count { font-size: 0.65rem; }
+
+  /* Top bar */
+  .game-top-bar { padding: 0.4rem 0.75rem; }
+  .turn-indicator { font-size: 0.82rem; }
+
+  /* Self panel */
+  .self-panel { padding: 0.4rem 0.75rem; font-size: 0.85rem; gap: 0.5rem; }
+  .hand-area { padding: 0.5rem 0.75rem; }
+  .hand-cards { gap: 0.4rem; }
 }
 
 /* === RULES MODAL === */
@@ -1174,45 +1252,49 @@ body {
     </div>
     <div class="market-area" id="market-area">
       <div class="game-log" id="game-log"></div>
-      <!-- Player seats positioned around the table (clockwise from bottom) -->
-      <div class="player-seat seat-top"       id="seat-top"></div>
-      <div class="player-seat seat-top-left"  id="seat-top-left"></div>
-      <div class="player-seat seat-top-right" id="seat-top-right"></div>
-      <div class="player-seat seat-left"      id="seat-left"></div>
-      <div class="player-seat seat-right"     id="seat-right"></div>
-      <div class="pile-container">
-        <span class="pile-label tech-label">TECH</span>
-        <div class="pile-card tech-card" id="pile-tech" onclick="onPileClick('tech')">
-          <span class="card-suit-icon">&#128187;</span>
-          <span class="card-value mono">8</span>
-          <span class="card-suit-name">Tech</span>
-        </div>
-        <span class="pile-points-preview" id="pile-tech-preview"></span>
+      <!-- Player seats: on desktop absolute-positioned, on mobile flow in a row above piles -->
+      <div id="seats-row">
+        <div class="player-seat seat-top"       id="seat-top"></div>
+        <div class="player-seat seat-top-left"  id="seat-top-left"></div>
+        <div class="player-seat seat-top-right" id="seat-top-right"></div>
+        <div class="player-seat seat-left"      id="seat-left"></div>
+        <div class="player-seat seat-right"     id="seat-right"></div>
       </div>
-      <div class="pile-container">
-        <span class="pile-label realestate-label">REAL ESTATE</span>
-        <div class="pile-card realestate-card" id="pile-realEstate" onclick="onPileClick('realEstate')">
-          <span class="card-suit-icon">&#127970;</span>
-          <span class="card-value mono">8</span>
-          <span class="card-suit-name">Real Estate</span>
+      <div id="piles-row">
+        <div class="pile-container">
+          <span class="pile-label tech-label">TECH</span>
+          <div class="pile-card tech-card" id="pile-tech" onclick="onPileClick('tech')">
+            <span class="card-suit-icon">&#128187;</span>
+            <span class="card-value mono">8</span>
+            <span class="card-suit-name">Tech</span>
+          </div>
+          <span class="pile-points-preview" id="pile-tech-preview"></span>
         </div>
-        <span class="pile-points-preview" id="pile-realEstate-preview"></span>
-      </div>
-      <div class="pile-container">
-        <span class="pile-label energy-label">ENERGY</span>
-        <div class="pile-card energy-card" id="pile-energy" onclick="onPileClick('energy')">
-          <span class="card-suit-icon">&#9889;</span>
-          <span class="card-value mono">8</span>
-          <span class="card-suit-name">Energy</span>
+        <div class="pile-container">
+          <span class="pile-label realestate-label">REAL ESTATE</span>
+          <div class="pile-card realestate-card" id="pile-realEstate" onclick="onPileClick('realEstate')">
+            <span class="card-suit-icon">&#127970;</span>
+            <span class="card-value mono">8</span>
+            <span class="card-suit-name">Real Estate</span>
+          </div>
+          <span class="pile-points-preview" id="pile-realEstate-preview"></span>
         </div>
-        <span class="pile-points-preview" id="pile-energy-preview"></span>
-      </div>
-      <div class="draw-pile-display">
-        <span class="pile-label" style="color:var(--text-muted)">DRAW PILE</span>
-        <div class="draw-pile-visual" id="draw-pile-visual">
-          <span class="mono" id="draw-pile-count-inner">42</span>
+        <div class="pile-container">
+          <span class="pile-label energy-label">ENERGY</span>
+          <div class="pile-card energy-card" id="pile-energy" onclick="onPileClick('energy')">
+            <span class="card-suit-icon">&#9889;</span>
+            <span class="card-value mono">8</span>
+            <span class="card-suit-name">Energy</span>
+          </div>
+          <span class="pile-points-preview" id="pile-energy-preview"></span>
         </div>
-        <span class="draw-pile-count" id="draw-pile-count">42 cards</span>
+        <div class="draw-pile-display">
+          <span class="pile-label" style="color:var(--text-muted)">DRAW PILE</span>
+          <div class="draw-pile-visual" id="draw-pile-visual">
+            <span class="mono" id="draw-pile-count-inner">42</span>
+          </div>
+          <span class="draw-pile-count" id="draw-pile-count">42 cards</span>
+        </div>
       </div>
     </div>
     <div class="hand-area" id="hand-area">
