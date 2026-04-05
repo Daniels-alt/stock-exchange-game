@@ -1553,7 +1553,7 @@ function buildSetupUI() {
     aiSection.style.display = '';
     const aiCount = setupState.playerCount - 1;
     setupState.aiProfiles = setupState.aiProfiles || [];
-    while (setupState.aiProfiles.length < aiCount) setupState.aiProfiles.push('intern');
+    while (setupState.aiProfiles.length < aiCount) setupState.aiProfiles.push('rookie');
     const selDiv = document.getElementById('ai-selectors');
     selDiv.innerHTML = '';
     for (let i = 0; i < aiCount; i++) {
