@@ -973,8 +973,14 @@ body {
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
 }
 .pile-card.classic-card .card-value { color: var(--accent); }
-.hand-card.classic-card { border-color: var(--accent); }
+.hand-card.classic-card {
+  background: linear-gradient(135deg, #1a0a2e, #2d1047);
+  border: 2px solid rgba(139, 92, 246, 0.5);
+}
 .hand-card.classic-card .card-value { color: var(--accent); }
+.hand-card.classic-card:hover { border-color: var(--accent); }
+.hand-card.classic-card.selected { border-color: var(--accent); box-shadow: 0 0 18px rgba(139,92,246,0.5); }
+.classic-card .card-suit-name { display: none; }
 .score-popup.suit-classic { color: var(--accent); }
 .pile-label.classic-label { color: var(--accent); }
 
@@ -985,6 +991,11 @@ body {
 /* === VARIANT BUTTONS === */
 .variant-btns { display: flex; gap: 0.75rem; }
 .variant-btns .btn { width: auto; flex: 1; padding: 0.75rem; }
+.variant-btns .btn.selected {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: var(--accent);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+}
 
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
