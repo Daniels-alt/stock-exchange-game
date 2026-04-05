@@ -1003,6 +1003,7 @@ body {
     justify-content: center;
     gap: 0.4rem;
     width: 100%;
+    margin-bottom: 0.75rem;
   }
 
   /* Piles row: horizontal, centered */
@@ -1031,12 +1032,27 @@ body {
   .seat-avatar-icon { font-size: 1rem; margin-bottom: 0; }
   .seat-badge { display: none; }
 
+  /* Position indicators so players know who is where */
+  .player-seat.visible::after {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    display: block;
+    text-align: center;
+    margin-top: 0.1rem;
+  }
+  .seat-top.visible::after       { content: "▲ across"; }
+  .seat-top-left.visible::after  { content: "↖ left"; }
+  .seat-top-right.visible::after { content: "↗ right"; }
+  .seat-left.visible::after      { content: "◀ left"; }
+  .seat-right.visible::after     { content: "▶ right"; }
+
   /* Smaller cards */
   :root { --card-width: 62px; --card-height: 90px; }
   .pile-card .card-value { font-size: 1.5rem; }
   .pile-card .card-suit-icon { font-size: 1rem; margin-bottom: 0.1rem; }
   .pile-card .card-suit-name { font-size: 0.48rem; }
-  .pile-label { font-size: 0.62rem; }
+  .pile-label { display: none; }
   .pile-container { gap: 0.3rem; }
   .hand-card .card-value { font-size: 1.35rem; }
   .hand-card .card-suit-icon { font-size: 1rem; }
