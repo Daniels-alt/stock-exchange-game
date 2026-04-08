@@ -140,7 +140,7 @@ body {
   cursor: not-allowed;
 }
 
-.btn-icon { margin-right: 0.5rem; font-size: 1.2rem; }
+.btn-icon { margin-right: 0.5rem; font-size: 1.1rem; color: var(--gold); }
 
 .btn-primary {
   background: rgba(201,168,76,0.12);
@@ -383,6 +383,7 @@ body {
   font-size: 1.6rem;
   line-height: 1;
   margin-bottom: 0.1rem;
+  color: var(--gold);
 }
 .seat-name {
   font-weight: 700;
@@ -815,7 +816,7 @@ body {
   border-style: dashed;
   opacity: 0.4;
 }
-.waiting-slot-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.waiting-slot-icon { font-size: 2rem; margin-bottom: 0.5rem; color: var(--gold); }
 .waiting-slot-name { font-size: 0.85rem; color: var(--text-primary); }
 .waiting-status {
   color: var(--text-secondary);
@@ -1101,7 +1102,7 @@ body {
   .seat-name { font-size: 0.72rem; max-width: 80px; }
   .seat-stats { gap: 0.35rem; margin-top: 0; }
   .seat-score, .seat-cards { font-size: 0.75rem; }
-  .seat-avatar-icon { font-size: 1rem; margin-bottom: 0; }
+  .seat-avatar-icon { font-size: 1rem; margin-bottom: 0; color: var(--gold); }
   .seat-badge { display: none; }
 
   /* Order seats left→right to reflect their position around the table */
@@ -1227,13 +1228,13 @@ body {
     <p class="menu-subtitle">The Card Game &mdash; <span style="color:var(--accent);font-weight:600;">Beta</span></p>
     <div class="menu-buttons">
       <button class="btn btn-primary" onclick="startSetup('ai')">
-        <span class="btn-icon">&#129302;</span> Single Player vs AI
+        <span class="btn-icon">✦</span> Single Player vs AI
       </button>
       <button class="btn" onclick="startSetup('local')">
-        <span class="btn-icon">&#128101;</span> Local Multiplayer
+        <span class="btn-icon">◈◈</span> Local Multiplayer
       </button>
       <button class="btn" onclick="showOnlineLobby()">
-        <span class="btn-icon">&#127760;</span> Online Multiplayer
+        <span class="btn-icon">⊕</span> Online Multiplayer
       </button>
     </div>
     <div style="margin-top: 2rem;">
@@ -1485,7 +1486,7 @@ const VARIANT_CONFIG = {
   },
   classic: {
     suits: {
-      classic: { name: 'Classic', icon: '\u{1F3AF}', color: '#8b5cf6', cssClass: 'classic' }
+      classic: { name: 'Classic', icon: '◆', color: '#C9A84C', cssClass: 'classic' }
     },
     suitKeys: ['classic'],
     startValue: 15,
@@ -1514,7 +1515,7 @@ const AI_PROFILES = [
     desc: 'Completely random. Great for learning the interface.',
     difficulty: 'Easy',
     diffClass: 'diff-easy',
-    avatar: '\u{1F3B2}',
+    avatar: '◇',
     strategy: 'random'
   },
   {
@@ -1524,7 +1525,7 @@ const AI_PROFILES = [
     desc: 'Chases maximum immediate points. Dumps dead cards to keep drawing.',
     difficulty: 'Easy',
     diffClass: 'diff-easy',
-    avatar: '\u{1F4B0}',
+    avatar: '◆',
     strategy: 'myopic-greedy'
   },
   {
@@ -1534,7 +1535,7 @@ const AI_PROFILES = [
     desc: 'Saves edge cards for big plays. Keeps markets neutral while waiting.',
     difficulty: 'Medium',
     diffClass: 'diff-medium',
-    avatar: '\u{1F4CA}',
+    avatar: '◈',
     strategy: 'heuristic'
   },
   {
@@ -1544,7 +1545,7 @@ const AI_PROFILES = [
     desc: 'Lays traps for opponents. Scoring threshold adapts to game phase.',
     difficulty: 'Hard',
     diffClass: 'diff-hard',
-    avatar: '\u{1F3AF}',
+    avatar: '✦',
     strategy: 'dynamic-baiting'
   },
   {
@@ -1554,7 +1555,7 @@ const AI_PROFILES = [
     desc: 'Counts every card. Neutralizes threats and maximizes your point deficit.',
     difficulty: 'Expert',
     diffClass: 'diff-expert',
-    avatar: '\u{1F9E0}',
+    avatar: '✶',
     strategy: 'minimax-expert'
   }
 ];
@@ -2578,7 +2579,7 @@ function renderPlayerSeats() {
     const aiProfileObj = player.isAI && player.aiProfile
       ? (typeof player.aiProfile === 'object' ? player.aiProfile : AI_PROFILES.find(p => p.id === player.aiProfile))
       : null;
-    const avatarIcon = aiProfileObj ? aiProfileObj.avatar : '\uD83D\uDC64';
+    const avatarIcon = aiProfileObj ? aiProfileObj.avatar : '◉';
     let badge = '';
     if (aiProfileObj) {
       badge = `<span class="seat-badge">${aiProfileObj.title} \u2022 ${aiProfileObj.difficulty}</span>`;
@@ -2590,7 +2591,7 @@ function renderPlayerSeats() {
       <div class="seat-name">${player.name}</div>
       <div class="seat-stats">
         <span class="seat-score">${player.score} VP</span>
-        <span class="seat-cards">&#127183; ${player.hand.length}</span>
+        <span class="seat-cards"><span style="color:var(--gold-dim)">◆</span> ${player.hand.length}</span>
       </div>
       ${badge}
     `;
@@ -2606,19 +2607,19 @@ function renderSelfPanel() {
     isMyTurn = gameState.currentPlayerIndex === onlineState.playerIndex;
     if (isMyTurn) {
       const phaseHint = gameState.turnPhase === 'choose' ? 'Draw or Sell?' : 'Select a card';
-      badge = `<span class="turn-badge your-turn-badge">&#9654; Your Turn &mdash; ${phaseHint}</span>`;
+      badge = `<span class="turn-badge your-turn-badge">▸ Your Turn &mdash; ${phaseHint}</span>`;
     } else {
       const cur = gameState.players[gameState.currentPlayerIndex];
-      badge = `<span class="turn-badge ai-turn-badge">&#8987; ${cur ? cur.name : ''} is playing...</span>`;
+      badge = `<span class="turn-badge ai-turn-badge">◌ ${cur ? cur.name : ''} is playing...</span>`;
     }
   } else if (gameState.mode === 'ai') {
     player = gameState.players[0];
     isMyTurn = !currentPlayer().isAI;
     if (isMyTurn) {
       const phaseHint = gameState.turnPhase === 'choose' ? 'Draw or Sell?' : 'Select a card';
-      badge = `<span class="turn-badge your-turn-badge">&#9654; Your Turn &mdash; ${phaseHint}</span>`;
+      badge = `<span class="turn-badge your-turn-badge">▸ Your Turn &mdash; ${phaseHint}</span>`;
     } else {
-      badge = `<span class="turn-badge ai-turn-badge">&#8987; ${currentPlayer().name} is thinking...</span>`;
+      badge = `<span class="turn-badge ai-turn-badge">◌ ${currentPlayer().name} is thinking...</span>`;
     }
   } else {
     player = currentPlayer();
@@ -2626,7 +2627,7 @@ function renderSelfPanel() {
   }
 
   el.innerHTML = `
-    <span style="font-size:1.3rem">&#128100;</span>
+    <span style="font-size:1.3rem;color:var(--gold-dim)">◉</span>
     <span class="self-name">${player.name}</span>
     <span class="self-stat">
       <span class="self-stat-label">Score</span>
@@ -2759,7 +2760,7 @@ function renderActions() {
     if (gameState.drawPile.length > 0 && !gameState.endgame) {
       const drawBtn = document.createElement('button');
       drawBtn.className = 'btn btn-draw btn-sm';
-      drawBtn.innerHTML = `&#128179; Draw Card`;
+      drawBtn.innerHTML = `↓ Draw Card`;
       drawBtn.onclick = () => {
         if (isOnline) {
           wsSend({ type: 'choose_action', action: 'draw' });
@@ -2773,7 +2774,7 @@ function renderActions() {
     // Score button
     const scoreBtn = document.createElement('button');
     scoreBtn.className = 'btn btn-score btn-sm';
-    scoreBtn.innerHTML = `&#128176; Sell for +${points} VP`;
+    scoreBtn.innerHTML = `↑ Sell for +${points} VP`;
     scoreBtn.onclick = () => {
       if (isOnline) {
         wsSend({ type: 'choose_action', action: 'score' });
@@ -3218,20 +3219,20 @@ function updateWaitingRoom(players, maxPlayers, humanSlots) {
         const diffLabel = AI_DIFFICULTY_LABELS[p.aiProfile] || p.aiProfile || 'AI';
         html += `
           <div class="waiting-slot filled">
-            <div class="waiting-slot-icon">\uD83E\uDD16</div>
+            <div class="waiting-slot-icon" style="color:var(--gold)">◆</div>
             <div class="waiting-slot-name">${p.name}<br><span style="font-size:0.75rem;opacity:0.7;">AI &bull; ${diffLabel}</span></div>
           </div>`;
       } else {
         html += `
           <div class="waiting-slot filled">
-            <div class="waiting-slot-icon">\uD83D\uDC64</div>
+            <div class="waiting-slot-icon" style="color:var(--gold)">◉</div>
             <div class="waiting-slot-name">${p.name}</div>
           </div>`;
       }
     } else if (i < effectiveHumanSlots) {
       html += `
         <div class="waiting-slot empty">
-          <div class="waiting-slot-icon">?</div>
+          <div class="waiting-slot-icon" style="color:var(--gold-dim)">◌</div>
           <div class="waiting-slot-name">Waiting...</div>
         </div>`;
     }
