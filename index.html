@@ -1730,7 +1730,7 @@ function startGame() {
     players: players,
     piles: Object.fromEntries(vcfg.suitKeys.map(k => [k, { value: vcfg.startValue }])),
     drawPile: deck,
-    currentPlayerIndex: 0,
+    currentPlayerIndex: Math.floor(Math.random() * players.length),
     turnPhase: 'play', // 'play' or 'choose'
     selectedCard: null,
     lastPlay: null,
@@ -2025,24 +2025,45 @@ function aiTakeTurn() {
   let chosenPlay;
   let willScore;
 
-  switch (profile.strategy) {
-    case 'random':
-      ({ chosenPlay, willScore } = aiRandom(player, plays));
-      break;
-    case 'myopic-greedy':
-      ({ chosenPlay, willScore } = aiMyopicGreedy(player, plays));
-      break;
-    case 'heuristic':
-      ({ chosenPlay, willScore } = aiHeuristicThreshold(player, plays));
-      break;
-    case 'dynamic-baiting':
-      ({ chosenPlay, willScore } = aiDynamicBaiting(player, plays));
-      break;
-    case 'minimax-expert':
-      ({ chosenPlay, willScore } = aiMinimaxExpert(player, plays));
-      break;
-    default:
-      ({ chosenPlay, willScore } = aiRandom(player, plays));
+  if (gameState.variant === 'classic') {
+    // Classic variant has dedicated strategies tuned for the 1-suit 1-30 format
+    switch (profile.id) {
+      case 'rookie':
+      case 'daytrader':
+        ({ chosenPlay, willScore } = aiClassicEasy(player, plays));
+        break;
+      case 'tactician':
+        ({ chosenPlay, willScore } = aiClassicMedium(player, plays));
+        break;
+      case 'strategist':
+        ({ chosenPlay, willScore } = aiClassicHard(player, plays));
+        break;
+      case 'expert':
+        ({ chosenPlay, willScore } = aiClassicExpert(player, plays));
+        break;
+      default:
+        ({ chosenPlay, willScore } = aiClassicEasy(player, plays));
+    }
+  } else {
+    switch (profile.strategy) {
+      case 'random':
+        ({ chosenPlay, willScore } = aiRandom(player, plays));
+        break;
+      case 'myopic-greedy':
+        ({ chosenPlay, willScore } = aiMyopicGreedy(player, plays));
+        break;
+      case 'heuristic':
+        ({ chosenPlay, willScore } = aiHeuristicThreshold(player, plays));
+        break;
+      case 'dynamic-baiting':
+        ({ chosenPlay, willScore } = aiDynamicBaiting(player, plays));
+        break;
+      case 'minimax-expert':
+        ({ chosenPlay, willScore } = aiMinimaxExpert(player, plays));
+        break;
+      default:
+        ({ chosenPlay, willScore } = aiRandom(player, plays));
+    }
   }
 
   // Execute the play
@@ -2066,7 +2087,146 @@ function aiTakeTurn() {
 }
 
 // ============================================================
-// === AI STRATEGIES ==========================================
+// === AI STRATEGIES — CLASSIC VARIANT (1 suit, 1–30, pile @15)
+// ============================================================
+
+// Easy: always targets highest profit; sells at 10+, otherwise dumps
+// the least-costly card and draws. No awareness of other players.
+function aiClassicEasy(player, plays) {
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  if (sorted[0].points >= 10) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+  return { chosenPlay: sorted[sorted.length - 1], willScore: false };
+}
+
+// Medium: sells at 15+. Watches opponents' hand sizes:
+//  • I have more cards than avg → sell even at 8+ to equalise hands.
+//  • Others have more cards → prefer to draw; play the card whose value
+//    is closest to 15 (lowest opportunity cost to discard).
+function aiClassicMedium(player, plays) {
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+
+  if (sorted[0].points >= 15) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  const myCount = player.hand.length;
+  const others = gameState.players.filter(p => p !== player && p.hand.length > 0);
+  const avgOther = others.length > 0
+    ? others.reduce((s, p) => s + p.hand.length, 0) / others.length : 0;
+
+  if (myCount > avgOther && sorted[0].points >= 8) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  // Draw — sacrifice card closest to value 15 (keeps high-spread cards in hand)
+  const byNeutral = [...plays].sort((a, b) =>
+    Math.abs(a.card.value - 15) - Math.abs(b.card.value - 15));
+  return { chosenPlay: byNeutral[0], willScore: false };
+}
+
+// Hard: like Medium, but also uses draw-pile pressure and "last round" memory.
+// Removes recently played cards from opponent-threat estimate so it doesn't
+// over-value plays that leave a pile safe from spent cards.
+function aiClassicHard(player, plays) {
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  const drawPressure = gameState.drawPile.length <= gameState.players.length;
+
+  if (drawPressure || sorted[0].points >= 15) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  const playedSet = new Set((gameState.playedCards || []).map(c => c.value));
+  const mySet = new Set(player.hand.map(c => c.value));
+  const unaccounted = [];
+  for (let v = 1; v <= 30; v++) {
+    if (v === 15) continue;
+    if (!playedSet.has(v) && !mySet.has(v)) unaccounted.push(v);
+  }
+
+  // "Last round" = cards played since my last turn (≈ numPlayers-1 most recent plays)
+  const roundSize = gameState.players.length - 1;
+  const recentPlayed = new Set(
+    (gameState.playedCards || []).slice(-roundSize).map(c => c.value));
+  const threatCards = unaccounted.filter(v => !recentPlayed.has(v));
+
+  const scored = plays.map(p => {
+    const newPile = p.card.value;
+    const oppMaxGain = threatCards.length > 0
+      ? threatCards.reduce((m, v) => Math.max(m, Math.abs(newPile - v)), 0) : 0;
+    return { ...p, ev: p.points - oppMaxGain * 0.35 };
+  }).sort((a, b) => b.ev - a.ev);
+
+  const best = scored[0];
+  const others = gameState.players.filter(p => p !== player && p.hand.length > 0);
+  const avgOther = others.length > 0
+    ? others.reduce((s, p) => s + p.hand.length, 0) / others.length : 0;
+
+  if (best.ev >= 5 || (player.hand.length > avgOther && best.points >= 8)) {
+    return { chosenPlay: best, willScore: true };
+  }
+
+  const byNeutral = [...plays].sort((a, b) =>
+    Math.abs(a.card.value - 15) - Math.abs(b.card.value - 15));
+  return { chosenPlay: byNeutral[0], willScore: false };
+}
+
+// Expert: full card-counting + probabilistic EV analysis.
+// Knows every card ever played, estimates P(card in opponent's hand),
+// and picks the play that maximises (my gain − expected opponent gain).
+// When forced to draw, moves pile to minimise opponent's best-case response.
+function aiClassicExpert(player, plays) {
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  const drawPressure = gameState.drawPile.length <= gameState.players.length;
+
+  if (drawPressure || sorted[0].points >= 15) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  const playedSet = new Set((gameState.playedCards || []).map(c => c.value));
+  const mySet = new Set(player.hand.map(c => c.value));
+  const unaccounted = [];
+  for (let v = 1; v <= 30; v++) {
+    if (v === 15) continue;
+    if (!playedSet.has(v) && !mySet.has(v)) unaccounted.push(v);
+  }
+
+  const opponentTotal = gameState.players
+    .filter(p => p !== player)
+    .reduce((s, p) => s + p.hand.length, 0);
+  const pInHand = unaccounted.length > 0
+    ? Math.min(1, opponentTotal / unaccounted.length) : 0;
+
+  const scored = plays.map(p => {
+    const newPile = p.card.value;
+    const expectedOppScore = unaccounted.length > 0
+      ? unaccounted.reduce((s, v) => s + pInHand * Math.abs(newPile - v), 0) / unaccounted.length
+      : 0;
+    return { ...p, ev: p.points - expectedOppScore * 0.6 };
+  }).sort((a, b) => b.ev - a.ev);
+
+  const best = scored[0];
+  const others = gameState.players.filter(p => p !== player && p.hand.length > 0);
+  const avgOther = others.length > 0
+    ? others.reduce((s, p) => s + p.hand.length, 0) / others.length : 0;
+
+  if (best.ev >= 4 || (player.hand.length > avgOther && best.points >= 8)) {
+    return { chosenPlay: best, willScore: true };
+  }
+
+  // Draw: move pile to the position that minimises opponent's best-case gain
+  const drawPlays = plays.map(p => {
+    const newPile = p.card.value;
+    const worstCase = unaccounted.length > 0
+      ? unaccounted.reduce((m, v) => Math.max(m, pInHand * Math.abs(newPile - v)), 0) : 0;
+    return { ...p, worstCase };
+  }).sort((a, b) => a.worstCase - b.worstCase);
+  return { chosenPlay: drawPlays[0], willScore: false };
+}
+
+// ============================================================
+// === AI STRATEGIES — STANDARD VARIANT =======================
 // ============================================================
 
 // --- Level 1: Random Walker ---

@@ -94,7 +94,7 @@ function initializeGame(playerNames, variant = 'standard') {
     piles,
     drawPile: deck,
     playedCards: [],
-    currentPlayerIndex: 0,
+    currentPlayerIndex: Math.floor(Math.random() * playerNames.length),
     turnPhase: 'play',
     lastPlay: null,
     lastScore: null,
@@ -239,6 +239,152 @@ const AI_PROFILE_NAMES = {
   strategist: 'Marcus', expert: 'Viktor'
 };
 
+// ============================================================
+// === CLASSIC-VARIANT AI (1 suit, 1-30, pile starts at 15) ===
+// ============================================================
+
+function _classicAIEasy(plays, finalRound) {
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  if (finalRound || sorted[0].points >= 10) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+  // Play least-impactful card (fewest points = stays closest to pile), draw
+  return { chosenPlay: sorted[sorted.length - 1], willScore: false };
+}
+
+function _classicAIMedium(gs, playerIndex, plays, finalRound) {
+  const player = gs.players[playerIndex];
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+
+  if (finalRound || sorted[0].points >= 15) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  const myCount = player.hand.length;
+  const otherCounts = gs.players
+    .filter((_, i) => i !== playerIndex && gs.players[i].hand.length > 0)
+    .map(p => p.hand.length);
+  const avgOther = otherCounts.length > 0
+    ? otherCounts.reduce((a, b) => a + b, 0) / otherCounts.length : 0;
+
+  // More cards than opponents → sell to equalize
+  if (myCount > avgOther && sorted[0].points >= 8) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  // Prefer to draw: play card whose value is closest to 15 (lowest opportunity cost)
+  const byNeutral = [...plays].sort((a, b) =>
+    Math.abs(a.card.value - 15) - Math.abs(b.card.value - 15));
+  return { chosenPlay: byNeutral[0], willScore: false };
+}
+
+function _classicAIHard(gs, playerIndex, plays, finalRound) {
+  const player = gs.players[playerIndex];
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  const drawPressure = gs.drawPile.length <= gs.players.length;
+
+  if (finalRound || drawPressure || sorted[0].points >= 15) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  // Build unaccounted cards (not in my hand, not played yet)
+  const playedSet = new Set((gs.playedCards || []).map(c => c.value));
+  const mySet = new Set(player.hand.map(c => c.value));
+  const unaccounted = [];
+  for (let v = 1; v <= 30; v++) {
+    if (v === 15) continue;
+    if (!playedSet.has(v) && !mySet.has(v)) unaccounted.push(v);
+  }
+
+  // "Last round" ≈ cards played since my last turn (last numPlayers-1 plays)
+  const roundSize = gs.players.length - 1;
+  const recentPlayed = new Set(
+    (gs.playedCards || []).slice(-roundSize).map(c => c.value)
+  );
+  // Exclude recently played from threat (already spent by opponents)
+  const threatCards = unaccounted.filter(v => !recentPlayed.has(v));
+
+  const scored = plays.map(p => {
+    const newPile = p.card.value;
+    const oppMaxGain = threatCards.length > 0
+      ? threatCards.reduce((m, v) => Math.max(m, Math.abs(newPile - v)), 0) : 0;
+    return { ...p, ev: p.points - oppMaxGain * 0.35 };
+  }).sort((a, b) => b.ev - a.ev);
+
+  const best = scored[0];
+  const myCount = player.hand.length;
+  const otherCounts = gs.players
+    .filter((_, i) => i !== playerIndex && gs.players[i].hand.length > 0)
+    .map(p => p.hand.length);
+  const avgOther = otherCounts.length > 0
+    ? otherCounts.reduce((a, b) => a + b, 0) / otherCounts.length : 0;
+
+  if (best.ev >= 5 || (myCount > avgOther && best.points >= 8)) {
+    return { chosenPlay: best, willScore: true };
+  }
+
+  // Draw: play card closest to value 15 (least opportunity cost)
+  const byNeutral = [...plays].sort((a, b) =>
+    Math.abs(a.card.value - 15) - Math.abs(b.card.value - 15));
+  return { chosenPlay: byNeutral[0], willScore: false };
+}
+
+function _classicAIExpert(gs, playerIndex, plays, finalRound) {
+  const player = gs.players[playerIndex];
+  const sorted = [...plays].sort((a, b) => b.points - a.points);
+  const drawPressure = gs.drawPile.length <= gs.players.length;
+
+  if (finalRound || drawPressure || sorted[0].points >= 15) {
+    return { chosenPlay: sorted[0], willScore: true };
+  }
+
+  // Full card counting: every card played is known
+  const playedSet = new Set((gs.playedCards || []).map(c => c.value));
+  const mySet = new Set(player.hand.map(c => c.value));
+  const unaccounted = [];
+  for (let v = 1; v <= 30; v++) {
+    if (v === 15) continue;
+    if (!playedSet.has(v) && !mySet.has(v)) unaccounted.push(v);
+  }
+
+  // Probability each unaccounted card is in an opponent's hand
+  const opponentTotal = gs.players
+    .filter((_, i) => i !== playerIndex)
+    .reduce((sum, p) => sum + p.hand.length, 0);
+  const pInHand = unaccounted.length > 0
+    ? Math.min(1, opponentTotal / unaccounted.length) : 0;
+
+  // EV = my gain − weighted expected opponent gain for each possible pile position
+  const scored = plays.map(p => {
+    const newPile = p.card.value;
+    const expectedOppScore = unaccounted.length > 0
+      ? unaccounted.reduce((sum, v) => sum + pInHand * Math.abs(newPile - v), 0) / unaccounted.length
+      : 0;
+    return { ...p, ev: p.points - expectedOppScore * 0.6 };
+  }).sort((a, b) => b.ev - a.ev);
+
+  const best = scored[0];
+  const myCount = player.hand.length;
+  const otherCounts = gs.players
+    .filter((_, i) => i !== playerIndex && gs.players[i].hand.length > 0)
+    .map(p => p.hand.length);
+  const avgOther = otherCounts.length > 0
+    ? otherCounts.reduce((a, b) => a + b, 0) / otherCounts.length : 0;
+
+  if (best.ev >= 4 || (myCount > avgOther && best.points >= 8)) {
+    return { chosenPlay: best, willScore: true };
+  }
+
+  // When drawing: move pile to position that minimises opponent's best-case gain
+  const drawPlays = plays.map(p => {
+    const newPile = p.card.value;
+    const worstCase = unaccounted.length > 0
+      ? unaccounted.reduce((m, v) => Math.max(m, pInHand * Math.abs(newPile - v)), 0) : 0;
+    return { ...p, worstCase };
+  }).sort((a, b) => a.worstCase - b.worstCase);
+  return { chosenPlay: drawPlays[0], willScore: false };
+}
+
 function aiChoosePlay(gs, playerIndex) {
   const player = gs.players[playerIndex];
   const plays = getValidPlays(player.hand, gs.piles);
@@ -246,6 +392,18 @@ function aiChoosePlay(gs, playerIndex) {
 
   const profileId = player.aiProfile || 'rookie';
   const finalRound = gs.finalRound || gs.drawPile.length === 0;
+  const isClassic = gs.variant === 'classic';
+
+  if (isClassic) {
+    switch (profileId) {
+      case 'rookie':
+      case 'daytrader': return _classicAIEasy(plays, finalRound);
+      case 'tactician': return _classicAIMedium(gs, playerIndex, plays, finalRound);
+      case 'strategist': return _classicAIHard(gs, playerIndex, plays, finalRound);
+      case 'expert':     return _classicAIExpert(gs, playerIndex, plays, finalRound);
+      default:           return _classicAIEasy(plays, finalRound);
+    }
+  }
 
   switch (profileId) {
     case 'daytrader': return _aiMyopicGreedy(plays, finalRound);
