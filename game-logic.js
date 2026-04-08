@@ -133,9 +133,9 @@ function playCard(gs, playerIndex, card) {
 function chooseAction(gs, playerIndex, action) {
   const player = gs.players[playerIndex];
 
-  // Force scoring whenever 1 or fewer players still have cards
+  // Force sell only when THIS player is the sole remaining player with cards
   const activePlayers = gs.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length <= 1) {
+  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
     action = 'score';
   }
 

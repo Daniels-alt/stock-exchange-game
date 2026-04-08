@@ -1832,9 +1832,9 @@ function playCard(card, pileKey) {
 function chooseAction(action) {
   const player = currentPlayer();
 
-  // Force scoring whenever 1 or fewer players still have cards
+  // Force sell only when THIS player is the sole remaining player with cards
   const activePlayers = gameState.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length <= 1) {
+  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
     action = 'score';
   }
 
@@ -2076,8 +2076,9 @@ function aiTakeTurn() {
     setTimeout(() => {
       showAIThinking(false);
 
-      // Must score in final round, or if last player standing
-      const isLastStandingAI = gameState.players.filter(p => p.hand.length > 0).length === 1;
+      // Must score in final round, empty draw pile, or if THIS AI is the sole player with cards
+      const activeAI = gameState.players.filter(p => p.hand.length > 0);
+      const isLastStandingAI = activeAI.length === 1 && activeAI[0].id === player.id;
       if (gameState.finalRound || gameState.drawPile.length === 0 || isLastStandingAI) {
         willScore = true;
       }
@@ -2619,7 +2620,8 @@ function renderSelfPanel() {
 function renderTurnIndicator() {
   const player = currentPlayer();
   const el = document.getElementById('turn-indicator');
-  const isLastStanding = gameState.players.filter(p => p.hand.length > 0).length <= 1;
+  const activeIndicator = gameState.players.filter(p => p.hand.length > 0);
+  const isLastStanding = activeIndicator.length === 1 && activeIndicator[0].id === player.id;
   const canDraw = gameState.turnPhase === 'choose' &&
     gameState.drawPile.length > 0 && !gameState.finalRound && !isLastStanding;
   const phaseText = gameState.turnPhase === 'play'
@@ -2732,8 +2734,9 @@ function renderActions() {
   } else if (gameState.turnPhase === 'choose') {
     const points = gameState.lastPlay ? gameState.lastPlay.points : 0;
 
-    // Draw button (only if draw pile not empty, not final round, and not last player standing)
-    const isLastStanding = gameState.players.filter(p => p.hand.length > 0).length === 1;
+    // Draw button: hidden if draw pile empty, final round, or THIS player is the sole one with cards
+    const activeCurrent = gameState.players.filter(p => p.hand.length > 0);
+    const isLastStanding = activeCurrent.length === 1 && activeCurrent[0].id === currentPlayer().id;
     if (gameState.drawPile.length > 0 && !gameState.finalRound && !isLastStanding) {
       const drawBtn = document.createElement('button');
       drawBtn.className = 'btn btn-draw btn-sm';
