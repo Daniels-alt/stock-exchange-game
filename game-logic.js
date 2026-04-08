@@ -133,9 +133,9 @@ function playCard(gs, playerIndex, card) {
 function chooseAction(gs, playerIndex, action) {
   const player = gs.players[playerIndex];
 
-  // Force scoring if this player is the last one with cards
+  // Force scoring whenever 1 or fewer players still have cards
   const activePlayers = gs.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
+  if (activePlayers.length <= 1) {
     action = 'score';
   }
 
@@ -189,9 +189,10 @@ function advanceTurn(gs) {
     return { gameOver: true };
   }
 
-  // Last player standing: they just completed their one final turn → game over
+  // If only 1 player has cards left, game ends immediately —
+  // that player does not get another turn (their remaining cards are discarded).
   const activePlayers = gs.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
+  if (activePlayers.length === 1) {
     gs.phase = 'gameOver';
     return { gameOver: true };
   }
