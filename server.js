@@ -111,7 +111,7 @@ function generateRoomId() {
 function handleCreate(ws, msg) {
   const name = (msg.name || '').trim().substring(0, 20) || 'Player';
   const maxPlayers = [2, 3, 4].includes(msg.maxPlayers) ? msg.maxPlayers : 2;
-  const variant = ['standard', 'classic'].includes(msg.variant) ? msg.variant : 'standard';
+  const variant = ['standard', 'classic'].includes(msg.variant) ? msg.variant : 'classic';
   const validProfiles = ['rookie', 'daytrader', 'tactician', 'strategist', 'expert'];
   const rawAiSlots = Array.isArray(msg.aiSlots)
     ? msg.aiSlots.slice(0, maxPlayers - 1).map(s => ({

@@ -1217,10 +1217,6 @@ body {
     <h2 class="setup-title">Game Setup</h2>
 
     <div class="setup-section">
-      <label class="setup-label">GAME MODE</label>
-      <div class="variant-btns" id="variant-btns"></div>
-    </div>
-    <div class="setup-section">
       <label class="setup-label">Number of Players</label>
       <div class="player-count-btns" id="player-count-btns"></div>
     </div>
@@ -1256,8 +1252,6 @@ body {
 
     <div id="lobby-create" class="lobby-panel active">
       <input id="online-name" class="player-name-input" placeholder="Your name" maxlength="20" value="Player 1">
-      <label class="setup-label" style="margin-top:1rem;">Game Mode</label>
-      <div class="variant-btns" id="online-variant-btns"></div>
       <label class="setup-label" style="margin-top:1rem;">Players</label>
       <div class="player-count-btns" id="online-player-count"></div>
       <div id="online-ai-slots"></div>
@@ -1406,32 +1400,39 @@ body {
     <button class="modal-close" onclick="closeRules()">&times;</button>
     <h2>How to Play</h2>
     <h3>Theme</h3>
-    <p>You are stock traders on Wall Street. Three stocks are listed on the exchange: <strong style="color:var(--tech)">Tech</strong>, <strong style="color:var(--realestate)">Real Estate</strong>, and <strong style="color:var(--energy)">Energy</strong>. Buy low, sell high!</p>
+    <p>You are stock traders on Wall Street. One stock is listed on the exchange, numbered <strong>1–30</strong>. The market opens at <strong>15</strong>. Buy low, sell high!</p>
     <h3>Setup</h3>
     <ul>
-      <li>45 cards total: 3 suits, each numbered 1-15</li>
-      <li>Card 8 of each suit starts face-up as the market price</li>
-      <li>Remaining cards are shuffled into a draw pile</li>
+      <li>29 cards total, numbered 1–30 (card 15 is removed — it starts as the market price)</li>
+      <li>Card 15 is placed face-up as the starting market value</li>
+      <li>Remaining 29 cards are shuffled into a draw pile</li>
       <li>Each player receives: 6 cards (2 players), 5 cards (3 players), or 4 cards (4 players)</li>
     </ul>
     <h3>On Your Turn</h3>
     <ul>
-      <li><strong>Play a card:</strong> Place any card from your hand on its matching suit pile</li>
+      <li><strong>Play a card:</strong> Place any card from your hand onto the market pile</li>
       <li><strong>Then choose:</strong>
         <ul>
           <li><strong>Draw</strong> a new card from the draw pile, OR</li>
-          <li><strong>Sell</strong> to score victory points equal to the absolute difference between the old pile value and your played card</li>
+          <li><strong>Cash Out</strong> to score victory points equal to the absolute difference between the old market price and your played card</li>
         </ul>
       </li>
     </ul>
+    <h3>Scoring Example</h3>
+    <p>The market is at <strong>15</strong>. You play <strong>28</strong>. If you Cash Out, you score <strong>13 VP</strong> (|28 − 15| = 13). The market is now at 28 for the next player.</p>
     <h3>Game End</h3>
     <ul>
-      <li>The game ends when all players have emptied their hands, OR when the draw pile runs out</li>
-      <li>If the draw pile empties, each player with cards gets one final turn to sell</li>
+      <li><strong>Market Saturation:</strong> All players empty their hands — game ends immediately.</li>
+      <li><strong>Market Liquidation:</strong> Draw pile runs out — every player still holding cards gets one final turn to Cash Out one card.</li>
+      <li><strong>Last Trader Standing:</strong> Only one player has cards left — they get one final turn to Cash Out one card, then the game ends.</li>
       <li>The player with the most victory points wins!</li>
     </ul>
-    <h3>Strategy Tip</h3>
-    <p>Playing a card far from the pile's current value earns more points. But it also sets up the pile for the next player...</p>
+    <h3>Strategy Tips</h3>
+    <ul>
+      <li>Playing a card far from the current market price earns more points — but it also sets up a big opportunity for the next player.</li>
+      <li>Cards close to 15 are "safe" to play when drawing — they move the market less and limit what opponents can score.</li>
+      <li>Watch your opponents' hand sizes. If they're running low, consider Cashing Out before they do.</li>
+    </ul>
   </div>
 </div>
 
@@ -1534,7 +1535,7 @@ const AI_PROFILES = [
 let gameState = null;
 let setupState = {
   mode: 'ai',
-  variant: 'standard',
+  variant: 'classic',
   playerCount: 2,
   aiProfiles: ['rookie'],
   playerNames: ['Player 1']
@@ -1595,18 +1596,8 @@ function startSetup(mode) {
 function buildSetupUI() {
   const mode = setupState.mode;
 
-  // Variant buttons
-  const variantBtns = document.getElementById('variant-btns');
-  if (variantBtns) {
-    variantBtns.innerHTML = '';
-    for (const [id, label] of [['standard', 'Standard (3 suits)'], ['classic', 'Classic (1-30)']]) {
-      const btn = document.createElement('button');
-      btn.className = 'btn' + (setupState.variant === id ? ' selected' : '');
-      btn.textContent = label;
-      btn.onclick = () => { setupState.variant = id; buildSetupUI(); };
-      variantBtns.appendChild(btn);
-    }
-  }
+  // Variant is always classic — no selection shown
+  setupState.variant = 'classic';
 
   const countBtns = document.getElementById('player-count-btns');
   countBtns.innerHTML = '';
@@ -2871,7 +2862,7 @@ let onlineState = {
 
 let onlineSetup = {
   playerCount: 2,
-  variant: 'standard',
+  variant: 'classic',
   aiSlots: [] // array indexed by slot (slot 2..N), null = human, profileId string = AI
 };
 
@@ -2999,18 +2990,8 @@ function handleServerMessage(msg) {
 // --- Lobby UI ---
 
 function showOnlineLobby() {
-  // Build variant buttons
-  const variantDiv = document.getElementById('online-variant-btns');
-  if (variantDiv) {
-    variantDiv.innerHTML = '';
-    for (const [id, label] of [['standard', 'Standard (3 suits)'], ['classic', 'Classic (1-30)']]) {
-      const btn = document.createElement('button');
-      btn.className = 'btn' + (onlineSetup.variant === id ? ' selected' : '');
-      btn.textContent = label;
-      btn.onclick = () => { onlineSetup.variant = id; showOnlineLobby(); };
-      variantDiv.appendChild(btn);
-    }
-  }
+  // Variant is always classic
+  onlineSetup.variant = 'classic';
 
   // Build player count buttons immediately — uses existing .btn / .selected CSS pattern
   const countDiv = document.getElementById('online-player-count');
