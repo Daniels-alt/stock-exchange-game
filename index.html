@@ -707,6 +707,9 @@ body {
   opacity: 1;
 }
 
+/* === RESPONSIVE BUTTON TEXT === */
+.btn-text-short { display: none; }
+
 /* === PILE TARGET HIGHLIGHT === */
 .pile-card.target-highlight {
   animation: pulseGlow 1.5s ease-in-out infinite;
@@ -1184,9 +1187,13 @@ body {
   }
   .action-area .btn {
     flex: 1;
-    min-width: 100px;
+    min-width: 80px;
     white-space: nowrap;
   }
+
+  /* Short button labels on mobile */
+  .btn-text-full  { display: none; }
+  .btn-text-short { display: inline; }
 }
 
 /* === RULES MODAL === */
@@ -2850,7 +2857,7 @@ function renderActions() {
     if (gameState.drawPile.length > 0 && !gameState.endgame) {
       const drawBtn = document.createElement('button');
       drawBtn.className = 'btn btn-draw btn-sm';
-      drawBtn.innerHTML = `↓ Draw Card`;
+      drawBtn.innerHTML = `<span class="btn-text-full">↓ Draw Card</span><span class="btn-text-short">↓ Draw</span>`;
       drawBtn.onclick = () => {
         if (isOnline) {
           wsSend({ type: 'choose_action', action: 'draw' });
@@ -2864,7 +2871,7 @@ function renderActions() {
     // Score button
     const scoreBtn = document.createElement('button');
     scoreBtn.className = 'btn btn-score btn-sm';
-    scoreBtn.innerHTML = `↑ Sell for +${points} VP`;
+    scoreBtn.innerHTML = `<span class="btn-text-full">↑ Sell for +${points} VP</span><span class="btn-text-short">↑ Sell (+${points})</span>`;
     scoreBtn.onclick = () => {
       if (isOnline) {
         wsSend({ type: 'choose_action', action: 'score' });
@@ -2878,7 +2885,7 @@ function renderActions() {
     if (!gameState.endgame) {
       const backBtn = document.createElement('button');
       backBtn.className = 'btn btn-sm btn-back';
-      backBtn.innerHTML = '← Back';
+      backBtn.innerHTML = '<span class="btn-text-full">← Back</span><span class="btn-text-short">← Back</span>';
       backBtn.onclick = undoPlay;
       area.appendChild(backBtn);
     }
