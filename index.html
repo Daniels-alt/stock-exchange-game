@@ -696,6 +696,17 @@ body {
   box-shadow: 0 0 20px rgba(201,168,76,0.3);
 }
 
+.btn-back {
+  border-color: var(--border);
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+.btn-back:hover:not(:disabled) {
+  border-color: var(--border-active);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
 /* === PILE TARGET HIGHLIGHT === */
 .pile-card.target-highlight {
   animation: pulseGlow 1.5s ease-in-out infinite;
@@ -1860,6 +1871,37 @@ function playCard(card, pileKey) {
   renderGame();
 }
 
+function undoPlay() {
+  if (gameState.mode === 'online') {
+    wsSend({ type: 'undo_play' });
+    return;
+  }
+  if (gameState.turnPhase !== 'choose' || gameState.endgame || !gameState.lastPlay) return;
+
+  const player = currentPlayer();
+  const { card, pileKey, oldValue } = gameState.lastPlay;
+
+  gameState.piles[pileKey].value = oldValue;
+
+  const idx = gameState.playedCards.findIndex(c => c.suit === card.suit && c.value === card.value);
+  if (idx !== -1) gameState.playedCards.splice(idx, 1);
+
+  player.hand.push(card);
+  player.hand.sort((a, b) =>
+    gameState.suitKeys.indexOf(a.suit) - gameState.suitKeys.indexOf(b.suit) || a.value - b.value
+  );
+
+  addLog(`${player.name} took back their card.`);
+  const laEl = document.getElementById('last-action');
+  if (laEl) laEl.textContent = `${player.name} took back their card`;
+
+  gameState.lastPlay = null;
+  gameState.turnPhase = 'play';
+  gameState.selectedCard = null;
+
+  renderGame();
+}
+
 function chooseAction(action) {
   const player = currentPlayer();
 
@@ -2791,6 +2833,15 @@ function renderActions() {
       }
     };
     area.appendChild(scoreBtn);
+
+    // Back button — undo card play (not allowed in endgame)
+    if (!gameState.endgame) {
+      const backBtn = document.createElement('button');
+      backBtn.className = 'btn btn-sm btn-back';
+      backBtn.innerHTML = '← Back';
+      backBtn.onclick = undoPlay;
+      area.appendChild(backBtn);
+    }
   }
 }
 

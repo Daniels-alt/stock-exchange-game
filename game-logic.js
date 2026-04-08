@@ -537,12 +537,41 @@ function sanitizeState(gs, forPlayerIndex) {
   };
 }
 
+function undoPlay(gs, playerIndex) {
+  if (gs.turnPhase !== 'choose') return false;
+  if (gs.endgame) return false;
+  if (!gs.lastPlay) return false;
+
+  const player = gs.players[playerIndex];
+  const { card, pileKey, oldValue } = gs.lastPlay;
+
+  // Restore pile value
+  gs.piles[pileKey].value = oldValue;
+
+  // Remove card from playedCards
+  const idx = gs.playedCards.findIndex(c => c.suit === card.suit && c.value === card.value);
+  if (idx !== -1) gs.playedCards.splice(idx, 1);
+
+  // Return card to hand (sorted)
+  player.hand.push(card);
+  player.hand.sort((a, b) =>
+    gs.suitKeys.indexOf(a.suit) - gs.suitKeys.indexOf(b.suit) || a.value - b.value
+  );
+
+  const undoMsg = `${player.name} took back their card.`;
+  gs.gameLog.push(undoMsg);
+  gs.lastActionText = undoMsg;
+  gs.lastPlay = null;
+  gs.turnPhase = 'play';
+  return true;
+}
+
 module.exports = {
   VARIANT_CONFIG, SUITS, SUIT_KEYS, CARDS_PER_PLAYER,
   AI_PROFILE_NAMES,
   shuffle, createDeck, suitName,
   getValidPlays, initializeGame, aiChoosePlay,
-  playCard, chooseAction, advanceTurn,
+  playCard, chooseAction, advanceTurn, undoPlay,
   nextPlayer, checkGameEnd, getRankings,
   sanitizeState, pickUniqueAINames
 };

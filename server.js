@@ -89,6 +89,7 @@ function handleMessage(ws, msg) {
     case 'list':       return handleList(ws);
     case 'play_card':  return handlePlayCard(ws, msg);
     case 'choose_action': return handleChooseAction(ws, msg);
+    case 'undo_play':  return handleUndoPlay(ws, msg);
     case 'leave':      return handleLeave(ws);
     case 'reconnect':  return handleReconnect(ws, msg);
   }
@@ -412,6 +413,25 @@ function handleChooseAction(ws, msg) {
   broadcastState(room);
   sendYourTurn(room);
   triggerAITurns(room);
+}
+
+function handleUndoPlay(ws, msg) {
+  const client = clients.get(ws);
+  if (!client || !client.roomId) return sendError(ws, 'Not in a room');
+
+  const room = rooms.get(client.roomId);
+  if (!room || room.state !== 'playing') return sendError(ws, 'No active game');
+
+  const gs = room.gameState;
+  if (gs.currentPlayerIndex !== client.playerId) return sendError(ws, 'Not your turn');
+  if (gs.turnPhase !== 'choose') return sendError(ws, 'Wrong phase');
+  if (gs.endgame) return sendError(ws, 'Cannot undo during endgame');
+
+  const ok = GL.undoPlay(gs, client.playerId);
+  if (!ok) return sendError(ws, 'Nothing to undo');
+
+  broadcastState(room);
+  sendYourTurn(room);
 }
 
 // ============================================================
