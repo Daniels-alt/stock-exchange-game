@@ -1736,8 +1736,8 @@ function startGame() {
     lastPlay: null,
     playedCards: [],   // cards played to piles; used by Level 5 card counting
     gameLog: [],
-    finalRound: false,
-    finalRoundPlayers: new Set(),
+    endgame: null,           // null | 'liquidation' | 'lastTrader'
+    finalRoundPlayers: new Set(), // indices of players who completed their final sell turn
     tickerMessages: [], // kept for compat
     variant,
     suitKeys: vcfg.suitKeys,
@@ -1832,11 +1832,8 @@ function playCard(card, pileKey) {
 function chooseAction(action) {
   const player = currentPlayer();
 
-  // Force sell only when THIS player is the sole remaining player with cards
-  const activePlayers = gameState.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
-    action = 'score';
-  }
+  // In endgame, player must always sell (no draw)
+  if (gameState.endgame) action = 'score';
 
   if (action === 'draw') {
     if (gameState.drawPile.length > 0) {
@@ -1860,16 +1857,18 @@ function chooseAction(action) {
     showScorePopup(pts, gameState.lastPlay.card.suit);
     const laElScore = document.getElementById('last-action');
     if (laElScore) laElScore.textContent = `${player.name} sold for +${pts} VP`;
+    // Mark this player as having completed their final sell turn
+    if (gameState.endgame) gameState.finalRoundPlayers.add(gameState.currentPlayerIndex);
   }
 
   gameState.lastPlay = null;
   gameState.turnPhase = 'play';
   gameState.selectedCard = null;
 
-  // Check if draw pile just emptied
-  if (gameState.drawPile.length === 0 && !gameState.finalRound) {
-    gameState.finalRound = true;
-    addLog('<span class="log-negative">Draw pile empty! Final round begins.</span>');
+  // Rule 2 — Market Liquidation: draw pile just ran out → start endgame
+  if (!gameState.endgame && gameState.drawPile.length === 0) {
+    gameState.endgame = 'liquidation';
+    addLog('<span class="log-warning">Draw pile empty! Final selling round begins.</span>');
   }
 
   // Advance turn
@@ -1879,31 +1878,38 @@ function chooseAction(action) {
 function advanceTurn() {
   const player = currentPlayer();
 
-  // If this player has no cards left, mark them done
   if (player.hand.length === 0) {
     addLog(`${player.name} has no cards left.`);
   }
 
-  // Mark final round participation
-  if (gameState.finalRound) {
-    gameState.finalRoundPlayers.add(gameState.currentPlayerIndex);
-  }
-
-  // Check game end
-  if (checkGameEnd()) {
+  // Rule 1 — Market Saturation: all hands empty
+  if (gameState.players.every(p => p.hand.length === 0)) {
     endGame();
     return;
   }
 
-  // If only 1 player has cards left, game ends immediately —
-  // that player does not get another turn (their remaining cards are discarded).
-  const activeAfter = gameState.players.filter(p => p.hand.length > 0);
-  if (activeAfter.length === 1) {
-    endGame();
-    return;
+  // Rules 2 & 3 — endgame in progress: check if every remaining player
+  // has completed their one final sell turn
+  if (gameState.endgame) {
+    const stillPending = gameState.players.filter(
+      p => p.hand.length > 0 && !gameState.finalRoundPlayers.has(p.id)
+    );
+    if (stillPending.length === 0) {
+      endGame();
+      return;
+    }
   }
 
-  // Next player
+  // Rule 3 — Last Trader Standing: only one player has cards left
+  // Trigger endgame so they get exactly one final sell turn
+  if (!gameState.endgame) {
+    const active = gameState.players.filter(p => p.hand.length > 0);
+    if (active.length === 1) {
+      gameState.endgame = 'lastTrader';
+      addLog(`<span class="log-warning">${active[0].name} is the last trader! One final sell turn.</span>`);
+    }
+  }
+
   nextPlayer();
   renderGame();
   beginTurn();
@@ -1917,17 +1923,9 @@ function nextPlayer() {
   while (checked < n) {
     const p = gameState.players[next];
     // Skip players with no cards
-    if (p.hand.length === 0) {
-      next = (next + 1) % n;
-      checked++;
-      continue;
-    }
-    // In final round, skip players who already had their final turn
-    if (gameState.finalRound && gameState.finalRoundPlayers.has(next)) {
-      next = (next + 1) % n;
-      checked++;
-      continue;
-    }
+    if (p.hand.length === 0) { next = (next + 1) % n; checked++; continue; }
+    // In endgame, skip players who already completed their final sell turn
+    if (gameState.endgame && gameState.finalRoundPlayers.has(p.id)) { next = (next + 1) % n; checked++; continue; }
     break;
   }
 
@@ -1935,16 +1933,8 @@ function nextPlayer() {
 }
 
 function checkGameEnd() {
-  // All players have empty hands
-  if (gameState.players.every(p => p.hand.length === 0)) return true;
-
-  // Final round: all players with cards have had their turn
-  if (gameState.finalRound) {
-    const playersWithCards = gameState.players.filter(p => p.hand.length > 0);
-    if (playersWithCards.every(p => gameState.finalRoundPlayers.has(p.id))) return true;
-  }
-
-  return false;
+  // Simplified: full end-game logic is handled inside advanceTurn
+  return gameState.players.every(p => p.hand.length === 0);
 }
 
 function endGame() {
@@ -2076,10 +2066,8 @@ function aiTakeTurn() {
     setTimeout(() => {
       showAIThinking(false);
 
-      // Must score in final round, empty draw pile, or if THIS AI is the sole player with cards
-      const activeAI = gameState.players.filter(p => p.hand.length > 0);
-      const isLastStandingAI = activeAI.length === 1 && activeAI[0].id === player.id;
-      if (gameState.finalRound || gameState.drawPile.length === 0 || isLastStandingAI) {
+      // In endgame, always sell
+      if (gameState.endgame) {
         willScore = true;
       }
 
@@ -2388,7 +2376,7 @@ function aiMinimaxExpert(player, plays) {
 
   const best = scored[0];
   // Score when EV is genuinely positive or game is ending
-  const nearEnd = gameState.finalRound ||
+  const nearEnd = gameState.endgame ||
     gameState.drawPile.length <= gameState.players.length ||
     gameState.players.filter(p => p.id !== player.id).some(p => p.hand.length <= 1);
   const willScore = nearEnd || best.ev >= 3;
@@ -2620,10 +2608,8 @@ function renderSelfPanel() {
 function renderTurnIndicator() {
   const player = currentPlayer();
   const el = document.getElementById('turn-indicator');
-  const activeIndicator = gameState.players.filter(p => p.hand.length > 0);
-  const isLastStanding = activeIndicator.length === 1 && activeIndicator[0].id === player.id;
   const canDraw = gameState.turnPhase === 'choose' &&
-    gameState.drawPile.length > 0 && !gameState.finalRound && !isLastStanding;
+    gameState.drawPile.length > 0 && !gameState.endgame;
   const phaseText = gameState.turnPhase === 'play'
     ? 'Select a card to play'
     : (canDraw ? 'Draw or Sell?' : 'Sell!');
@@ -2734,10 +2720,8 @@ function renderActions() {
   } else if (gameState.turnPhase === 'choose') {
     const points = gameState.lastPlay ? gameState.lastPlay.points : 0;
 
-    // Draw button: hidden if draw pile empty, final round, or THIS player is the sole one with cards
-    const activeCurrent = gameState.players.filter(p => p.hand.length > 0);
-    const isLastStanding = activeCurrent.length === 1 && activeCurrent[0].id === currentPlayer().id;
-    if (gameState.drawPile.length > 0 && !gameState.finalRound && !isLastStanding) {
+    // Draw button: hidden when endgame is active (final selling round)
+    if (gameState.drawPile.length > 0 && !gameState.endgame) {
       const drawBtn = document.createElement('button');
       drawBtn.className = 'btn btn-draw btn-sm';
       drawBtn.innerHTML = `&#128179; Draw Card`;
@@ -3284,7 +3268,7 @@ function applyOnlineState(serverState) {
     selectedCard: gameState ? gameState.selectedCard : null,
     lastPlay: serverState.lastPlay,
     gameLog: serverState.gameLog,
-    finalRound: serverState.finalRound,
+    endgame: serverState.endgame || null,
     finalRoundPlayers: new Set(),
     tickerMessages: [],
     stockState: serverState.stockState

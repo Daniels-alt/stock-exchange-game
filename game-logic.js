@@ -100,8 +100,8 @@ function initializeGame(playerNames, variant = 'standard') {
     lastScore: null,
     lastActionText: null,
     gameLog: [],
-    finalRound: false,
-    finalRoundPlayers: new Set(),
+    endgame: null,          // null | 'liquidation' | 'lastTrader'
+    finalRoundPlayers: new Set(), // indices of players who completed their final sell turn
     stockState
   };
 }
@@ -133,11 +133,8 @@ function playCard(gs, playerIndex, card) {
 function chooseAction(gs, playerIndex, action) {
   const player = gs.players[playerIndex];
 
-  // Force sell only when THIS player is the sole remaining player with cards
-  const activePlayers = gs.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length === 1 && activePlayers[0].id === player.id) {
-    action = 'score';
-  }
+  // In endgame, player must always sell (no draw)
+  if (gs.endgame) action = 'score';
 
   if (action === 'draw') {
     if (gs.drawPile.length > 0) {
@@ -162,14 +159,17 @@ function chooseAction(gs, playerIndex, action) {
     gs.gameLog.push(logMsg);
     gs.lastActionText = logMsg;
     gs.lastScore = { points: pts, suit: gs.lastPlay.card.suit };
+    // Mark this player as having completed their final sell turn
+    if (gs.endgame) gs.finalRoundPlayers.add(playerIndex);
   }
 
   gs.lastPlay = null;
   gs.turnPhase = 'play';
 
-  if (gs.drawPile.length === 0 && !gs.finalRound) {
-    gs.finalRound = true;
-    gs.gameLog.push('Draw pile empty! Final round begins.');
+  // Rule 2 — Market Liquidation: draw pile just ran out → start endgame
+  if (!gs.endgame && gs.drawPile.length === 0) {
+    gs.endgame = 'liquidation';
+    gs.gameLog.push('Draw pile empty! Final selling round begins.');
   }
 }
 
@@ -180,21 +180,32 @@ function advanceTurn(gs) {
     gs.gameLog.push(`${player.name} has no cards left.`);
   }
 
-  if (gs.finalRound) {
-    gs.finalRoundPlayers.add(gs.currentPlayerIndex);
-  }
-
-  if (checkGameEnd(gs)) {
+  // Rule 1 — Market Saturation: all hands empty
+  if (gs.players.every(p => p.hand.length === 0)) {
     gs.phase = 'gameOver';
     return { gameOver: true };
   }
 
-  // If only 1 player has cards left, game ends immediately —
-  // that player does not get another turn (their remaining cards are discarded).
-  const activePlayers = gs.players.filter(p => p.hand.length > 0);
-  if (activePlayers.length === 1) {
-    gs.phase = 'gameOver';
-    return { gameOver: true };
+  // Rules 2 & 3 — endgame in progress: check if every remaining player
+  // has already completed their one final sell turn
+  if (gs.endgame) {
+    const stillPending = gs.players.filter(
+      p => p.hand.length > 0 && !gs.finalRoundPlayers.has(p.id)
+    );
+    if (stillPending.length === 0) {
+      gs.phase = 'gameOver';
+      return { gameOver: true };
+    }
+  }
+
+  // Rule 3 — Last Trader Standing: only one player has cards left
+  // Trigger endgame so they get exactly one final sell turn
+  if (!gs.endgame) {
+    const active = gs.players.filter(p => p.hand.length > 0);
+    if (active.length === 1) {
+      gs.endgame = 'lastTrader';
+      gs.gameLog.push(`${active[0].name} is the last trader! One final sell turn.`);
+    }
   }
 
   nextPlayer(gs);
@@ -209,7 +220,7 @@ function nextPlayer(gs) {
   while (checked < n) {
     const p = gs.players[next];
     if (p.hand.length === 0) { next = (next + 1) % n; checked++; continue; }
-    if (gs.finalRound && gs.finalRoundPlayers.has(next)) { next = (next + 1) % n; checked++; continue; }
+    if (gs.endgame && gs.finalRoundPlayers.has(p.id)) { next = (next + 1) % n; checked++; continue; }
     break;
   }
 
@@ -217,12 +228,8 @@ function nextPlayer(gs) {
 }
 
 function checkGameEnd(gs) {
-  if (gs.players.every(p => p.hand.length === 0)) return true;
-  if (gs.finalRound) {
-    const playersWithCards = gs.players.filter(p => p.hand.length > 0);
-    if (playersWithCards.every(p => gs.finalRoundPlayers.has(p.id))) return true;
-  }
-  return false;
+  // Simplified: full end-game logic is handled inside advanceTurn
+  return gs.players.every(p => p.hand.length === 0);
 }
 
 function getRankings(gs) {
@@ -394,7 +401,7 @@ function aiChoosePlay(gs, playerIndex) {
   if (!plays.length) return { chosenPlay: null, willScore: false };
 
   const profileId = player.aiProfile || 'rookie';
-  const finalRound = gs.finalRound || gs.drawPile.length === 0;
+  const finalRound = !!gs.endgame || gs.drawPile.length === 0;
   const isClassic = gs.variant === 'classic';
 
   if (isClassic) {
@@ -492,7 +499,7 @@ function sanitizeState(gs, forPlayerIndex) {
     lastPlay: gs.lastPlay,
     lastScore: gs.lastScore || null,
     lastActionText: gs.lastActionText || null,
-    finalRound: gs.finalRound,
+    endgame: gs.endgame || null,
     gameLog: gs.gameLog.slice(-50),
     stockState: gs.stockState,
     players: gs.players.map((p, i) => ({

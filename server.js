@@ -320,8 +320,7 @@ function triggerAITurns(room) {
 
     GL.playCard(gs, gs.currentPlayerIndex, chosenPlay.card);
 
-    const mustScore = gs.finalRound || gs.drawPile.length === 0;
-    GL.chooseAction(gs, gs.currentPlayerIndex, (mustScore || willScore) ? 'score' : 'draw');
+    GL.chooseAction(gs, gs.currentPlayerIndex, willScore ? 'score' : 'draw');
 
     const { gameOver } = GL.advanceTurn(gs);
 
@@ -384,8 +383,8 @@ function handleChooseAction(ws, msg) {
   if (gs.turnPhase !== 'choose') return sendError(ws, 'Play a card first');
   if (msg.action !== 'draw' && msg.action !== 'score') return sendError(ws, 'Invalid action');
 
-  // In final round / empty draw pile: force score
-  const action = (gs.finalRound || gs.drawPile.length === 0) ? 'score' : msg.action;
+  // endgame forces sell (chooseAction handles this internally too, belt-and-suspenders)
+  const action = gs.endgame ? 'score' : msg.action;
 
   GL.chooseAction(gs, client.playerId, action);
   const { gameOver } = GL.advanceTurn(gs);
@@ -571,8 +570,7 @@ function makeAIMove(room, playerIndex) {
 
       // Auto choose: 50% score, 50% draw
       setTimeout(() => {
-        const action = (gs.finalRound || gs.drawPile.length === 0) ? 'score'
-          : (Math.random() < 0.5 ? 'score' : 'draw');
+        const action = Math.random() < 0.5 ? 'score' : 'draw';
         GL.chooseAction(gs, playerIndex, action);
         const { gameOver } = GL.advanceTurn(gs);
 
