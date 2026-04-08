@@ -338,7 +338,7 @@ function _classicAIExpert(gs, playerIndex, plays, finalRound) {
     return { chosenPlay: sorted[0], willScore: true };
   }
 
-  // Full card counting: every card played is known
+  // Full card counting: all values not yet seen and not in my hand
   const playedSet = new Set((gs.playedCards || []).map(c => c.value));
   const mySet = new Set(player.hand.map(c => c.value));
   const unaccounted = [];
@@ -347,20 +347,13 @@ function _classicAIExpert(gs, playerIndex, plays, finalRound) {
     if (!playedSet.has(v) && !mySet.has(v)) unaccounted.push(v);
   }
 
-  // Probability each unaccounted card is in an opponent's hand
-  const opponentTotal = gs.players
-    .filter((_, i) => i !== playerIndex)
-    .reduce((sum, p) => sum + p.hand.length, 0);
-  const pInHand = unaccounted.length > 0
-    ? Math.min(1, opponentTotal / unaccounted.length) : 0;
-
-  // EV = my gain − weighted expected opponent gain for each possible pile position
+  // For each play, compute real worst-case opponent gain from the new pile position
   const scored = plays.map(p => {
     const newPile = p.card.value;
-    const expectedOppScore = unaccounted.length > 0
-      ? unaccounted.reduce((sum, v) => sum + pInHand * Math.abs(newPile - v), 0) / unaccounted.length
-      : 0;
-    return { ...p, ev: p.points - expectedOppScore * 0.6 };
+    const oppMaxGain = unaccounted.length > 0
+      ? unaccounted.reduce((m, v) => Math.max(m, Math.abs(newPile - v)), 0) : 0;
+    const ev = p.points - oppMaxGain * 0.55;
+    return { ...p, ev, oppMaxGain };
   }).sort((a, b) => b.ev - a.ev);
 
   const best = scored[0];
@@ -370,16 +363,25 @@ function _classicAIExpert(gs, playerIndex, plays, finalRound) {
     .map(p => p.hand.length);
   const avgOther = otherCounts.length > 0
     ? otherCounts.reduce((a, b) => a + b, 0) / otherCounts.length : 0;
+  const handPressure = myCount > avgOther;
 
-  if (best.ev >= 4 || (myCount > avgOther && best.points >= 8)) {
+  const sellThreshold = handPressure ? 7 : 10;
+  const catastrophic = best.oppMaxGain >= 13;
+
+  if (best.ev >= sellThreshold && !catastrophic) {
     return { chosenPlay: best, willScore: true };
   }
 
-  // When drawing: move pile to position that minimises opponent's best-case gain
+  // Safety net: extremely profitable play even if risky
+  if (best.points >= 13) {
+    return { chosenPlay: best, willScore: true };
+  }
+
+  // Draw: pick card that moves pile to position with smallest opponent worst-case
   const drawPlays = plays.map(p => {
     const newPile = p.card.value;
     const worstCase = unaccounted.length > 0
-      ? unaccounted.reduce((m, v) => Math.max(m, pInHand * Math.abs(newPile - v)), 0) : 0;
+      ? unaccounted.reduce((m, v) => Math.max(m, Math.abs(newPile - v)), 0) : 0;
     return { ...p, worstCase };
   }).sort((a, b) => a.worstCase - b.worstCase);
   return { chosenPlay: drawPlays[0], willScore: false };

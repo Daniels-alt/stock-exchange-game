@@ -2172,10 +2172,16 @@ function aiClassicHard(player, plays) {
   return { chosenPlay: byNeutral[0], willScore: false };
 }
 
-// Expert: full card-counting + probabilistic EV analysis.
-// Knows every card ever played, estimates P(card in opponent's hand),
-// and picks the play that maximises (my gain − expected opponent gain).
-// When forced to draw, moves pile to minimise opponent's best-case response.
+// Expert: full card-counting + real worst-case analysis.
+// Tracks every card ever played. For each potential play it computes:
+//   EV = myGain − oppMaxGain * 0.55
+// where oppMaxGain = the largest score any remaining unaccounted card
+// could get off the new pile value (no probability averaging — the expert
+// knows exactly which cards are still live and won't underestimate danger).
+// Only sells when EV is genuinely high AND the new pile position is not
+// catastrophically dangerous for future turns.
+// When drawing, plays the card that moves the pile to the position where
+// the opponent's best possible response is minimised.
 function aiClassicExpert(player, plays) {
   const sorted = [...plays].sort((a, b) => b.points - a.points);
   const drawPressure = gameState.drawPile.length <= gameState.players.length;
@@ -2184,6 +2190,7 @@ function aiClassicExpert(player, plays) {
     return { chosenPlay: sorted[0], willScore: true };
   }
 
+  // Full card counting: all values not yet seen and not in my hand
   const playedSet = new Set((gameState.playedCards || []).map(c => c.value));
   const mySet = new Set(player.hand.map(c => c.value));
   const unaccounted = [];
@@ -2192,34 +2199,41 @@ function aiClassicExpert(player, plays) {
     if (!playedSet.has(v) && !mySet.has(v)) unaccounted.push(v);
   }
 
-  const opponentTotal = gameState.players
-    .filter(p => p !== player)
-    .reduce((s, p) => s + p.hand.length, 0);
-  const pInHand = unaccounted.length > 0
-    ? Math.min(1, opponentTotal / unaccounted.length) : 0;
-
+  // For each play, compute real worst-case opponent gain from the new pile position
   const scored = plays.map(p => {
     const newPile = p.card.value;
-    const expectedOppScore = unaccounted.length > 0
-      ? unaccounted.reduce((s, v) => s + pInHand * Math.abs(newPile - v), 0) / unaccounted.length
-      : 0;
-    return { ...p, ev: p.points - expectedOppScore * 0.6 };
+    const oppMaxGain = unaccounted.length > 0
+      ? unaccounted.reduce((m, v) => Math.max(m, Math.abs(newPile - v)), 0) : 0;
+    // Net EV: my gain minus danger of the pile position I'm leaving behind
+    const ev = p.points - oppMaxGain * 0.55;
+    return { ...p, ev, oppMaxGain };
   }).sort((a, b) => b.ev - a.ev);
 
   const best = scored[0];
   const others = gameState.players.filter(p => p !== player && p.hand.length > 0);
   const avgOther = others.length > 0
     ? others.reduce((s, p) => s + p.hand.length, 0) / others.length : 0;
+  const handPressure = player.hand.length > avgOther;
 
-  if (best.ev >= 4 || (player.hand.length > avgOther && best.points >= 8)) {
+  // Sell threshold: high enough to avoid marginal sales.
+  // Lower slightly under hand pressure, but never sell into a catastrophic pile.
+  const sellThreshold = handPressure ? 7 : 10;
+  const catastrophic = best.oppMaxGain >= 13; // leaving this pile lets opp score 13+
+
+  if (best.ev >= sellThreshold && !catastrophic) {
     return { chosenPlay: best, willScore: true };
   }
 
-  // Draw: move pile to the position that minimises opponent's best-case gain
+  // Safety net: if every possible play is catastrophic, still sell when highly profitable
+  if (best.points >= 13) {
+    return { chosenPlay: best, willScore: true };
+  }
+
+  // Draw: pick card that moves pile to position with the smallest opponent worst-case
   const drawPlays = plays.map(p => {
     const newPile = p.card.value;
     const worstCase = unaccounted.length > 0
-      ? unaccounted.reduce((m, v) => Math.max(m, pInHand * Math.abs(newPile - v)), 0) : 0;
+      ? unaccounted.reduce((m, v) => Math.max(m, Math.abs(newPile - v)), 0) : 0;
     return { ...p, worstCase };
   }).sort((a, b) => a.worstCase - b.worstCase);
   return { chosenPlay: drawPlays[0], willScore: false };
