@@ -2619,7 +2619,12 @@ function renderSelfPanel() {
 function renderTurnIndicator() {
   const player = currentPlayer();
   const el = document.getElementById('turn-indicator');
-  const phaseText = gameState.turnPhase === 'play' ? 'Select a card to play' : 'Draw or Sell?';
+  const isLastStanding = gameState.players.filter(p => p.hand.length > 0).length <= 1;
+  const canDraw = gameState.turnPhase === 'choose' &&
+    gameState.drawPile.length > 0 && !gameState.finalRound && !isLastStanding;
+  const phaseText = gameState.turnPhase === 'play'
+    ? 'Select a card to play'
+    : (canDraw ? 'Draw or Sell?' : 'Sell!');
   if (gameState.mode === 'online') {
     if (gameState.currentPlayerIndex === onlineState.playerIndex) {
       el.innerHTML = `<span class="player-name-highlight">Your</span> turn \u2014 ${phaseText}`;
