@@ -113,12 +113,17 @@ function handleCreate(ws, msg) {
   const maxPlayers = [2, 3, 4].includes(msg.maxPlayers) ? msg.maxPlayers : 2;
   const variant = ['standard', 'classic'].includes(msg.variant) ? msg.variant : 'standard';
   const validProfiles = ['rookie', 'daytrader', 'tactician', 'strategist', 'expert'];
-  const aiSlots = Array.isArray(msg.aiSlots)
+  const rawAiSlots = Array.isArray(msg.aiSlots)
     ? msg.aiSlots.slice(0, maxPlayers - 1).map(s => ({
-        profile: validProfiles.includes(s.profile) ? s.profile : 'rookie',
-        name: GL.AI_PROFILE_NAMES[s.profile] || 'AI'
+        profile: validProfiles.includes(s.profile) ? s.profile : 'rookie'
       }))
     : [];
+  // Assign unique names from pool, avoiding the host's name
+  const aiUniqueNames = GL.pickUniqueAINames(rawAiSlots.length, [name]);
+  const aiSlots = rawAiSlots.map((s, i) => ({
+    profile: s.profile,
+    name: aiUniqueNames[i] || `AI ${i + 1}`
+  }));
   const humanSlots = maxPlayers - aiSlots.length; // at least 1 (the creator)
 
   // Leave current room if in one

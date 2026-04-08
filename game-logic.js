@@ -247,6 +247,27 @@ const AI_PROFILE_NAMES = {
   strategist: 'Marcus', expert: 'Viktor'
 };
 
+// Large name pool for AI players — ensures unique names even with multiple AIs
+const AI_NAME_POOL = [
+  'James', 'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia',
+  'Michael', 'Isabella', 'William', 'Mia', 'Benjamin', 'Charlotte', 'Lucas',
+  'Amelia', 'Henry', 'Harper', 'Alexander', 'Evelyn', 'Ryan', 'Grace',
+  'Chloe', 'Matthew', 'Victoria', 'Nathan', 'Zoe', 'David', 'Lily', 'Owen',
+  'Aria', 'Jack', 'Luna', 'Sebastian', 'Layla', 'Julian', 'Riley', 'Miles',
+  'Nora', 'Eli', 'Stella', 'Leo', 'Hazel', 'Caleb', 'Violet', 'Isaac'
+];
+
+function pickUniqueAINames(count, takenNames) {
+  const taken = new Set((takenNames || []).map(n => n.toLowerCase()));
+  const available = AI_NAME_POOL.filter(n => !taken.has(n.toLowerCase()));
+  // shuffle
+  for (let i = available.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [available[i], available[j]] = [available[j], available[i]];
+  }
+  return available.slice(0, count);
+}
+
 // ============================================================
 // === CLASSIC-VARIANT AI (1 suit, 1-30, pile starts at 15) ===
 // ============================================================
@@ -523,5 +544,5 @@ module.exports = {
   getValidPlays, initializeGame, aiChoosePlay,
   playCard, chooseAction, advanceTurn,
   nextPlayer, checkGameEnd, getRankings,
-  sanitizeState
+  sanitizeState, pickUniqueAINames
 };
