@@ -1788,7 +1788,7 @@ function rebuildPilesDOM() {
     const container = document.createElement('div');
     container.className = 'pile-container';
     const pileInner = isClassic
-      ? `<img class="card-img" id="pile-${key}-img" src="Assets/${gameState.piles[key].value}.jpg" alt="${gameState.piles[key].value}">`
+      ? `<img class="card-img" id="pile-${key}-img" src="Assets/${gameState.piles[key].value}.png" alt="${gameState.piles[key].value}">`
       : `<span class="card-suit-icon">${suit.icon}</span>
          <span class="card-value mono">${gameState.piles[key].value}</span>
          <span class="card-suit-name">${suit.name}</span>`;
@@ -2500,7 +2500,7 @@ function renderPiles() {
     // Classic variant: update image src instead of text
     const imgEl = el.querySelector('.card-img');
     if (imgEl) {
-      imgEl.src = `Assets/${pile.value}.jpg`;
+      imgEl.src = `Assets/${pile.value}.png`;
     } else {
       el.querySelector('.card-value').textContent = pile.value;
     }
@@ -2684,7 +2684,7 @@ function renderHand(player) {
 
     const isClassic = suitCss(card.suit) === 'classic';
     div.innerHTML = isClassic
-      ? `<img class="card-img" src="Assets/${card.value}.jpg" alt="${card.value}">
+      ? `<img class="card-img" src="Assets/${card.value}.png" alt="${card.value}">
          <span class="card-points-badge">+${pts}</span>`
       : `<span class="card-suit-icon">${suitIcon(card.suit)}</span>
          <span class="card-value mono">${card.value}</span>
