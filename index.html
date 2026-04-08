@@ -2521,16 +2521,25 @@ function renderPlayerSeats() {
     el.innerHTML = '';
   }
 
-  // In online mode, build seatMap excluding the local player
+  // In online mode, build seatMap excluding the local player.
+  // Others are ordered clockwise starting from the player immediately after
+  // yourIndex so that: left = next-in-turn, top = across, right = previous.
   let seatMap;
   if (gameState.mode === 'online') {
+    const myIdx = onlineState.playerIndex;
     const others = [];
-    for (let i = 0; i < n; i++) {
-      if (i !== onlineState.playerIndex) others.push(i);
+    for (let offset = 1; offset < n; offset++) {
+      others.push((myIdx + offset) % n);
     }
-    const seats = n === 2 ? ['top'] : n === 3 ? ['top-left', 'top-right'] : ['left', 'top', 'right'];
+    // seat layout: left = immediately after me, top = across, right = before me
+    const seatsByCount = {
+      2: ['top'],
+      3: ['top-left', 'top-right'],
+      4: ['left', 'top', 'right']
+    };
+    const seats = seatsByCount[n] || [];
     seatMap = {};
-    others.forEach((idx, i) => { if (seats[i]) seatMap[idx] = seats[i]; });
+    others.forEach((idx, i) => { if (seats[i] !== undefined) seatMap[idx] = seats[i]; });
   } else {
     seatMap = SEAT_MAP[n] || {};
   }
@@ -2543,10 +2552,14 @@ function renderPlayerSeats() {
     const isActive = idx === gameState.currentPlayerIndex;
     el.classList.add('visible');
     if (isActive) el.classList.add('active-turn');
-    const avatarIcon = player.isAI && player.aiProfile ? player.aiProfile.avatar : '\uD83D\uDC64';
+    // aiProfile may be a string (online) or an object (local AI) — normalise
+    const aiProfileObj = player.isAI && player.aiProfile
+      ? (typeof player.aiProfile === 'object' ? player.aiProfile : AI_PROFILES.find(p => p.id === player.aiProfile))
+      : null;
+    const avatarIcon = aiProfileObj ? aiProfileObj.avatar : '\uD83D\uDC64';
     let badge = '';
-    if (player.isAI && player.aiProfile) {
-      badge = `<span class="seat-badge">${player.aiProfile.title} \u2022 ${player.aiProfile.difficulty}</span>`;
+    if (aiProfileObj) {
+      badge = `<span class="seat-badge">${aiProfileObj.title} \u2022 ${aiProfileObj.difficulty}</span>`;
     } else if (gameState.mode === 'online' && player.connected === false) {
       badge = `<span class="seat-badge" style="color:var(--danger)">Disconnected</span>`;
     }
