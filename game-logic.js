@@ -1,5 +1,5 @@
 // ============================================================
-// === STOCK EXCHANGE CARD GAME — SHARED GAME LOGIC ===========
+// === EX-CHANGE! — SHARED GAME LOGIC =========================
 // ============================================================
 // Pure game functions used by the server. No DOM, no rendering.
 
