@@ -1777,11 +1777,12 @@ function preloadCardImages() {
 }
 
 function applyImgLoad(img) {
-  img.classList.remove('img-loaded');
-  const done = () => img.classList.add('img-loaded');
   if (img.complete && img.naturalHeight > 0) {
-    requestAnimationFrame(done);
+    // Already in cache — set immediately, no transition, no flicker
+    img.classList.add('img-loaded');
   } else {
+    // Not yet loaded — shimmer until done
+    const done = () => img.classList.add('img-loaded');
     img.addEventListener('load',  done, { once: true });
     img.addEventListener('error', done, { once: true });
   }
