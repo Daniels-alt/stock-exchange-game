@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ex-Change! — Rules</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0A0A0A;
+      --bg2:      #111111;
+      --gold:     #C9A84C;
+      --gold-dim: #8A7535;
+      --text:     #F5F0E8;
+      --muted:    #9A9590;
+      --green:    #1A4D2E;
+      --border:   rgba(201,168,76,0.25);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: 11pt;
+      line-height: 1.75;
+      padding: 48px 56px;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      border-bottom: 1px solid var(--gold-dim);
+      padding-bottom: 28px;
+      margin-bottom: 36px;
+    }
+
+    .header__subtitle {
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .header__title {
+      font-family: 'Playfair Display', serif;
+      font-size: 38pt;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+    }
+
+    .header__tagline {
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    /* ── Sections ── */
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section__label {
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5pt;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 6px;
+    }
+
+    .section__heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 16pt;
+      font-weight: 700;
+      color: var(--gold);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+
+    p {
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    /* ── Components box ── */
+    .components-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      padding: 14px 18px;
+      border-radius: 2px;
+    }
+
+    /* ── Numbered list ── */
+    .rule-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .rule-list li {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 12px;
+      align-items: flex-start;
+    }
+
+    .rule-list__num {
+      font-family: 'DM Mono', monospace;
+      font-size: 10pt;
+      color: var(--gold);
+      min-width: 18px;
+      padding-top: 1px;
+    }
+
+    .rule-list__text {
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* sub-bullets */
+    .sub-list {
+      list-style: none;
+      margin-top: 6px;
+    }
+
+    .sub-list li {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .sub-list__bullet {
+      color: var(--gold-dim);
+      font-family: 'DM Mono', monospace;
+      min-width: 14px;
+    }
+
+    /* ── Step cards ── */
+    .step {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      border-radius: 2px;
+    }
+
+    .step__title {
+      font-family: 'Playfair Display', serif;
+      font-size: 12pt;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    /* ── Option cards ── */
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .option {
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      border-radius: 2px;
+    }
+
+    .option--reinvest {
+      border-left: 3px solid var(--green);
+      background: rgba(26,77,46,0.12);
+    }
+
+    .option--cashout {
+      border-left: 3px solid #6B1D2A;
+      background: rgba(107,29,42,0.12);
+    }
+
+    .option__title {
+      font-family: 'Playfair Display', serif;
+      font-size: 11pt;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .option__badge {
+      display: inline-block;
+      font-family: 'Inter', sans-serif;
+      font-size: 7pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    /* ── Formula ── */
+    .formula {
+      text-align: center;
+      margin: 18px 0 6px;
+      background: var(--bg2);
+      border-top: 1px solid var(--gold-dim);
+      border-bottom: 1px solid var(--gold-dim);
+      padding: 14px;
+    }
+
+    .formula__label {
+      font-family: 'Inter', sans-serif;
+      font-size: 7pt;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .formula__text {
+      font-family: 'DM Mono', monospace;
+      font-size: 14pt;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Game End ── */
+    .end-conditions {
+      list-style: none;
+    }
+
+    .end-conditions li {
+      display: flex;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: flex-start;
+    }
+
+    .end-conditions li:last-child {
+      border-bottom: none;
+    }
+
+    .end-conditions__num {
+      font-family: 'DM Mono', monospace;
+      font-size: 10pt;
+      color: var(--gold);
+      min-width: 18px;
+      padding-top: 1px;
+    }
+
+    .end-conditions__label {
+      font-family: 'Playfair Display', serif;
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    /* ── Winner banner ── */
+    .winner {
+      margin-top: 26px;
+      background: var(--bg2);
+      border: 1px solid var(--gold-dim);
+      padding: 20px 24px;
+      text-align: center;
+      border-radius: 2px;
+    }
+
+    .winner__label {
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5pt;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .winner__text {
+      font-family: 'Playfair Display', serif;
+      font-size: 15pt;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 42px;
+      padding-top: 16px;
+      border-top: 1px solid var(--gold-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer__logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 11pt;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+
+    .footer__copy {
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5pt;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { padding: 32px 44px; background: #0A0A0A !important; color: #F5F0E8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <p class="header__subtitle">Official Rulebook</p>
+    <h1 class="header__title">EX-CHANGE!</h1>
+    <p class="header__tagline">Outsmart the Market. Master the Trade.</p>
+  </header>
+
+  <!-- Objective -->
+  <section class="section">
+
+    <h2 class="section__heading">Objective</h2>
+    <p>Outsmart the market and maximize your profits. The player with the highest total <strong style="color:var(--gold)">Victory Points (VP)</strong> at the end of the game wins.</p>
+  </section>
+
+  <!-- Components -->
+  <section class="section">
+
+    <h2 class="section__heading">Components</h2>
+    <div class="components-box">
+      <p><strong style="color:var(--gold)">30 Stock Cards</strong> — Numbered 1 to 30.</p>
+    </div>
+  </section>
+
+  <!-- Setup -->
+  <section class="section">
+
+    <h2 class="section__heading">Setup</h2>
+    <ul class="rule-list">
+      <li>
+        <span class="rule-list__num">1.</span>
+        <span class="rule-list__text"><strong style="color:var(--gold)">The Opening Index:</strong> Find the card numbered 15 and place it face-up in the center of the table. This is the <em>Active Pile</em>.</span>
+      </li>
+      <li>
+        <span class="rule-list__num">2.</span>
+        <span class="rule-list__text">
+          <strong style="color:var(--gold)">Deal:</strong> Shuffle the remaining 29 cards and deal Portfolio Cards face-down to each player:
+          <ul class="sub-list">
+            <li><span class="sub-list__bullet">—</span> 2 Players: 6 cards per player.</li>
+            <li><span class="sub-list__bullet">—</span> 3 Players: 5 cards per player.</li>
+            <li><span class="sub-list__bullet">—</span> 4 Players: 4 cards per player.</li>
+          </ul>
+        </span>
+      </li>
+      <li>
+        <span class="rule-list__num">3.</span>
+        <span class="rule-list__text"><strong style="color:var(--gold)">The Market (Draw Pile):</strong> Place the remaining cards face-down next to the Active Pile.</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- Gameplay -->
+  <section class="section">
+
+    <h2 class="section__heading">Gameplay</h2>
+    <p>The game is played in turns, moving clockwise. On your turn, perform the following two steps:</p>
+
+    <div class="step">
+      <p class="step__title">Step 1 — Influence the Market</p>
+      <p>Play one card from your hand face-up onto the Active Pile. This card becomes the new <strong style="color:var(--gold)">"Market Price."</strong></p>
+    </div>
+
+    <div class="step">
+      <p class="step__title">Step 2 — Choose Your Strategy</p>
+      <p>After playing a card, choose <strong>ONE</strong> of the following two actions:</p>
+      <div class="options">
+        <div class="option option--reinvest">
+          <span class="option__badge">Option A</span>
+          <p class="option__title">Reinvest</p>
+          <p>Draw the top card from the Draw Pile and add it to your hand. Your turn ends. No points this turn — but your portfolio stays full for future opportunities.</p>
+        </div>
+        <div class="option option--cashout">
+          <span class="option__badge">Option B</span>
+          <p class="option__title">Cash Out</p>
+          <p>Score Victory Points equal to the absolute difference between the previous Market Price and the card you just played. Your hand shrinks by one.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="formula">
+      <p class="formula__label">The Scoring Formula</p>
+      <p class="formula__text">| Old Price − New Price | = Victory Points</p>
+    </div>
+  </section>
+
+  <!-- Game End -->
+  <section class="section">
+
+    <h2 class="section__heading">Game End &amp; Winning</h2>
+    <p>The game continues until one of the following three conditions is met:</p>
+
+    <ul class="end-conditions">
+      <li>
+        <span class="end-conditions__num">1.</span>
+        <span>
+          <p class="end-conditions__label">Market Saturation</p>
+          <p>Every player Cashes Out all cards from their portfolio.</p>
+        </span>
+      </li>
+      <li>
+        <span class="end-conditions__num">2.</span>
+        <span>
+          <p class="end-conditions__label">Market Liquidation</p>
+          <p>The Draw Pile is empty. Remaining players with cards get one final turn to Cash Out one card.</p>
+        </span>
+      </li>
+      <li>
+        <span class="end-conditions__num">3.</span>
+        <span>
+          <p class="end-conditions__label">Last Trader Standing</p>
+          <p>If only one player remains with cards, they get one final turn to Cash Out one card.</p>
+        </span>
+      </li>
+    </ul>
+
+    <div class="winner">
+      <p class="winner__label">Final Score</p>
+      <p class="winner__text">Add all VP from your Cash Out actions — highest total wins the title of Market Master.</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span class="footer__logo">EX-CHANGE!</span>
+    <span class="footer__copy">© 2025 Ex-Change! Card Game</span>
+  </footer>
+
+</body>
+</html>
