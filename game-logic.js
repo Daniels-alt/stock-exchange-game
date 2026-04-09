@@ -16,7 +16,7 @@ const VARIANT_CONFIG = {
   },
   classic: {
     suits: {
-      classic: { name: 'Classic', icon: '\u{1F3AF}', color: '#8b5cf6', cssClass: 'classic' }
+      classic: { name: 'מניה', icon: '\u{1F3AF}', color: '#8b5cf6', cssClass: 'classic' }
     },
     suitKeys: ['classic'],
     startValue: 15,
