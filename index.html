@@ -2871,7 +2871,7 @@ function renderActions() {
     // Score button
     const scoreBtn = document.createElement('button');
     scoreBtn.className = 'btn btn-score btn-sm';
-    scoreBtn.innerHTML = `<span class="btn-text-full">↑ Sell for +${points} VP</span><span class="btn-text-short">↑ Sell (+${points})</span>`;
+    scoreBtn.innerHTML = `<span class="btn-text-full">↑ Sell for +${points} VP</span><span class="btn-text-short">↑ Sell +${points}</span>`;
     scoreBtn.onclick = () => {
       if (isOnline) {
         wsSend({ type: 'choose_action', action: 'score' });
