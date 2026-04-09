@@ -1032,6 +1032,25 @@ body {
   object-fit: cover;
   display: block;
   border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.card-img.img-loaded {
+  opacity: 1;
+}
+.card-img:not(.img-loaded) {
+  background: linear-gradient(
+    105deg,
+    rgba(15,10,3,0.98) 25%,
+    rgba(201,168,76,0.13) 50%,
+    rgba(15,10,3,0.98) 75%
+  );
+  background-size: 250% 100%;
+  animation: cardShimmer 1.6s ease-in-out infinite;
+}
+@keyframes cardShimmer {
+  0%   { background-position: 150% 0; }
+  100% { background-position: -150% 0; }
 }
 
 /* Points badge stays visible on top of image */
@@ -1757,6 +1776,17 @@ function preloadCardImages() {
   }
 }
 
+function applyImgLoad(img) {
+  img.classList.remove('img-loaded');
+  const done = () => img.classList.add('img-loaded');
+  if (img.complete && img.naturalHeight > 0) {
+    requestAnimationFrame(done);
+  } else {
+    img.addEventListener('load',  done, { once: true });
+    img.addEventListener('error', done, { once: true });
+  }
+}
+
 function startGame() {
   preloadCardImages();
   const mode = setupState.mode;
@@ -1866,6 +1896,8 @@ function rebuildPilesDOM() {
       <span class="pile-points-preview" id="pile-${key}-preview"></span>
     `;
     pilesRow.insertBefore(container, drawPileDisplay);
+    const pileImg = container.querySelector('.card-img');
+    if (pileImg) applyImgLoad(pileImg);
   }
 }
 
@@ -2598,6 +2630,7 @@ function renderPiles() {
     const imgEl = el.querySelector('.card-img');
     if (imgEl) {
       imgEl.src = `Assets/${pile.value}.webp`;
+      applyImgLoad(imgEl);
     } else {
       el.querySelector('.card-value').textContent = pile.value;
     }
@@ -2780,13 +2813,16 @@ function renderHand(player) {
     const pts = Math.abs(pileValue - card.value);
 
     const isClassic = suitCss(card.suit) === 'classic';
-    div.innerHTML = isClassic
-      ? `<img class="card-img" src="Assets/${card.value}.webp" alt="${card.value}">
-         <span class="card-points-badge">+${pts}</span>`
-      : `<span class="card-suit-icon">${suitIcon(card.suit)}</span>
+    if (isClassic) {
+      div.innerHTML = `<img class="card-img" src="Assets/${card.value}.webp" alt="${card.value}">
+         <span class="card-points-badge">+${pts}</span>`;
+      applyImgLoad(div.querySelector('.card-img'));
+    } else {
+      div.innerHTML = `<span class="card-suit-icon">${suitIcon(card.suit)}</span>
          <span class="card-value mono">${card.value}</span>
          <span class="card-suit-name">${suitName(card.suit)}</span>
          <span class="card-points-badge">+${pts}</span>`;
+    }
 
     // Only interactive when it's this player's turn and phase is 'play'
     const canInteract = gameState.mode === 'online'
